@@ -21,10 +21,21 @@ jobs:
         run: |
           mkdir -p source
           unzip -q "github-pages (2).zip" -d source
+          # Some exports wrap the website in a tar archive inside the ZIP.
+          while IFS= read -r -d '' archive; do
+            case "$archive" in
+              *.tar|*.tar.gz|*.tgz)
+                mkdir -p "source/unpacked-$(basename "$archive")"
+                tar -xf "$archive" -C "source/unpacked-$(basename "$archive")" || true
+                ;;
+            esac
+          done < <(find source -type f \( -name '*.tar' -o -name '*.tar.gz' -o -name '*.tgz' \) -print0)
           INDEX="$(find source -type f -iname index.html -print -quit)"
           if [ -z "$INDEX" ]; then
-            echo "No index.html found in the ZIP. This project may not be a static website."
-            find source -maxdepth 4 -type f | head -200
+            echo "No index.html found. Listing project files to diagnose archive layout:"
+            find source -maxdepth 5 -type f | head -250
+            echo "ZIP listing:"
+            unzip -l "github-pages (2).zip" | head -100
             exit 1
           fi
           SITE_DIR="$(dirname "$INDEX")"
