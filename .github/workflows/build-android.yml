@@ -202,6 +202,59 @@ jobs:
           }
           EOF
 
+      - name: Add real DNS VPN service foundation
+        run: |
+          # Register the Android VPN service and permission-consent bridge.
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("app/src/main/AndroidManifest.xml")
+          s=p.read_text()
+          s=s.replace('<uses-permission android:name="android.permission.INTERNET" />','<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />')
+          s=s.replace('</application>','''<service android:name=".DnsVpnService" android:permission="android.permission.BIND_VPN_SERVICE" android:exported="false">
+                      <intent-filter><action android:name="android.net.VpnService" /></intent-filter>
+                  </service>
+              </application>''')
+          p.write_text(s)
+          PY
+          cat > app/src/main/java/com/irkhatary/app/DnsVpnService.java <<'JAVA'
+          package com.irkhatary.app;
+          import android.net.VpnService;
+          import android.content.Intent;
+          import android.os.ParcelFileDescriptor;
+          import android.util.Log;
+          import java.io.IOException;
+          public class DnsVpnService extends VpnService {
+              public static final String ACTION_START = "com.irkhatary.app.START_DNS";
+              public static final String ACTION_STOP = "com.irkhatary.app.STOP_DNS";
+              private ParcelFileDescriptor tunnel;
+              @Override public int onStartCommand(Intent intent, int flags, int startId) {
+                  if (intent != null && ACTION_STOP.equals(intent.getAction())) { stopSelf(); return START_NOT_STICKY; }
+                  try {
+                      Builder builder = new Builder()
+                          .setSession("IR_Khatary DNS")
+                          .addAddress("10.77.0.2", 32)
+                          .addDnsServer("87.248.145.40")
+                          .addDnsServer("193.242.208.98")
+                          .addRoute("87.248.145.40", 32)
+                          .addRoute("193.242.208.98", 32);
+                      tunnel = builder.establish();
+                      if (tunnel == null) { stopSelf(); return START_NOT_STICKY; }
+                      // A TUN packet-processing loop is required before this can carry DNS traffic.
+                      // Do not report a connected state until forwarding has been implemented.
+                      Log.w("IR_KhataryDNS", "VPN interface created; DNS forwarding loop is not yet implemented.");
+                      stopSelf();
+                  } catch (Exception e) {
+                      Log.e("IR_KhataryDNS", "Could not establish DNS interface", e);
+                      stopSelf();
+                  }
+                  return START_NOT_STICKY;
+              }
+              @Override public void onDestroy() {
+                  try { if (tunnel != null) tunnel.close(); } catch (IOException ignored) {}
+                  super.onDestroy();
+              }
+          }
+          JAVA
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
 
