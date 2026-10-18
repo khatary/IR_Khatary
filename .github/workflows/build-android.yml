@@ -54,9 +54,20 @@ jobs:
               }
           }
           EOF
+          mkdir -p app/src/main/res/drawable
+          cat > app/src/main/res/drawable/ic_launcher.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+              <path android:fillColor="#06102B" android:pathData="M0,0h108v108h-108z"/>
+              <path android:fillColor="#0B3154" android:strokeColor="#00D9FF" android:strokeWidth="2" android:pathData="M18,8h72a10,10 0,0 1,10 10v72a10,10 0,0 1,-10 10h-72a10,10 0,0 1,-10 -10v-72a10,10 0,0 1,10 -10z"/>
+              <path android:fillColor="#00000000" android:strokeColor="#4E9AB7" android:strokeWidth="0.8" android:pathData="M28,8v92 M40,8v92 M52,8v92 M64,8v92 M76,8v92 M88,8v92 M8,28h92 M8,40h92 M8,52h92 M8,64h92 M8,76h92 M8,88h92"/>
+              <path android:fillColor="#FFFFFF" android:pathData="M29,43 L20,31 Q19,29 21,28 Q23,27 25,30 L35,41 Q44,36 54,36 Q64,36 73,41 L83,30 Q85,27 87,29 Q89,31 86,34 L79,43 Q89,52 89,66 L19,66 Q19,52 29,43z"/>
+              <path android:fillColor="#0B3154" android:pathData="M34,51a4,4 0,1 0,0.1 0z M74,51a4,4 0,1 0,0.1 0z"/>
+              <path android:fillColor="#00D9FF" android:pathData="M19,77h70v3h-70z M26,84h56v2h-56z"/>
+          </vector>
+          EOF
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="IR_Khatary DNS" android:hardwareAccelerated="true" android:allowBackup="false">
+              <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="IR_Khatary DNS" android:icon="@drawable/ic_launcher" android:hardwareAccelerated="true" android:allowBackup="false">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
                   </activity>
