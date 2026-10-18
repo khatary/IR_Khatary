@@ -1,0 +1,149 @@
+name: Build IR_Khatary Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract website project
+        run: |
+          mkdir -p source
+          unzip -q "github-pages (2).zip" -d source
+          INDEX="$(find source -type f -iname index.html -print -quit)"
+          if [ -z "$INDEX" ]; then
+            echo "No index.html found in the ZIP. This project may not be a static website."
+            find source -maxdepth 4 -type f | head -200
+            exit 1
+          fi
+          SITE_DIR="$(dirname "$INDEX")"
+          echo "Website root: $SITE_DIR"
+          mkdir -p app/src/main/assets/www
+          cp -a "$SITE_DIR"/. app/src/main/assets/www/
+          echo "Website files copied:"
+          find app/src/main/assets/www -maxdepth 3 -type f | head -100
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate Android WebView app
+        run: |
+          cat > settings.gradle <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+          rootProject.name = "IR_Khatary"
+          include(":app")
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+          android {
+              namespace 'com.irkhatary.app'
+              compileSdk 35
+              defaultConfig {
+                  applicationId 'com.irkhatary.app'
+                  minSdk 23
+                  targetSdk 28
+                  versionCode 1
+                  versionName '1.0'
+              }
+          }
+          EOF
+
+          mkdir -p app/src/main/java/com/irkhatary/app
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:theme="@android:style/Theme.Material.Light.NoActionBar"
+                  android:label="IR_Khatary"
+                  android:usesCleartextTraffic="true"
+                  android:hardwareAccelerated="true"
+                  android:allowBackup="false">
+                  <activity
+                      android:name=".MainActivity"
+                      android:configChanges="orientation|screenSize|keyboardHidden"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/java/com/irkhatary/app/MainActivity.java <<'EOF'
+          package com.irkhatary.app;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebChromeClient;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import android.webkit.WebSettings;
+          import android.webkit.WebResourceRequest;
+          import android.content.Intent;
+          import android.net.Uri;
+
+          public class MainActivity extends Activity {
+              private WebView webView;
+              @Override public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  webView = new WebView(this);
+                  setContentView(webView);
+                  WebSettings s = webView.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setAllowFileAccess(true);
+                  s.setMediaPlaybackRequiresUserGesture(false);
+                  webView.setWebViewClient(new WebViewClient() {
+                      @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                          Uri uri = request.getUrl();
+                          if ("file".equals(uri.getScheme())) return false;
+                          if (uri.getHost() != null && (uri.getHost().equals("localhost") || uri.getHost().equals("appassets.androidplatform.net"))) return false;
+                          try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception ignored) {}
+                          return true;
+                      }
+                  });
+                  webView.setWebChromeClient(new WebChromeClient());
+                  webView.loadUrl("file:///android_asset/www/index.html");
+              }
+              @Override public void onBackPressed() {
+                  if (webView != null && webView.canGoBack()) webView.goBack();
+                  else super.onBackPressed();
+              }
+          }
+          EOF
+
+      - name: Build debug APK
+        run: gradle --no-daemon assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-Android-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
