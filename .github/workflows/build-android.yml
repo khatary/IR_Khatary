@@ -17,33 +17,72 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract website project
+      - name: Create IR_Khatary app interface
         run: |
-          mkdir -p source
-          unzip -q "github-pages (2).zip" -d source
-          # Some exports wrap the website in a tar archive inside the ZIP.
-          while IFS= read -r -d '' archive; do
-            case "$archive" in
-              *.tar|*.tar.gz|*.tgz)
-                mkdir -p "source/unpacked-$(basename "$archive")"
-                tar -xf "$archive" -C "source/unpacked-$(basename "$archive")" || true
-                ;;
-            esac
-          done < <(find source -type f \( -name '*.tar' -o -name '*.tar.gz' -o -name '*.tgz' \) -print0)
-          INDEX="$(find source -type f -iname index.html -print -quit)"
-          if [ -z "$INDEX" ]; then
-            echo "No index.html found. Listing project files to diagnose archive layout:"
-            find source -maxdepth 5 -type f | head -250
-            echo "ZIP listing:"
-            unzip -l "github-pages (2).zip" | head -100
-            exit 1
-          fi
-          SITE_DIR="$(dirname "$INDEX")"
-          echo "Website root: $SITE_DIR"
-          mkdir -p app/src/main/assets/www
-          cp -a "$SITE_DIR"/. app/src/main/assets/www/
-          echo "Website files copied:"
-          find app/src/main/assets/www -maxdepth 3 -type f | head -100
+          mkdir -p app/src/main/assets/www app/src/main/java/com/irkhatary/app
+          cat > app/src/main/assets/www/index.html <<'HTML'
+          <!doctype html>
+          <html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><meta name="theme-color" content="#05091b"><title>IR_Khatary DNS</title>
+          <style>
+          *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 18%,#14285e 0,#080b20 53%,#03040c 100%);color:#f6f7ff;font-family:Tahoma,Arial,sans-serif;min-height:100vh}.wrap{max-width:520px;margin:auto;padding:23px 18px 28px}.top{display:flex;justify-content:space-between;align-items:center}.brand{font-size:24px;font-weight:900;letter-spacing:.5px;background:linear-gradient(90deg,#00eaff,#6d66ff,#f62ed1);color:transparent;background-clip:text}.tag{font-size:10px;border:1px solid #20518d;border-radius:20px;padding:8px 10px;color:#57e2ff}.subbrand{font-size:10px;color:#9aafd9;margin-top:5px;letter-spacing:2px}.hero{margin:28px 0 18px;text-align:center;padding:24px 15px;border:1px solid #1a4b8d;border-radius:25px;background:linear-gradient(145deg,#101f4a,#070b20 70%,#1a0d3b);box-shadow:0 0 36px #0648a044}.art{font-size:55px;filter:drop-shadow(0 0 12px #00aaff)}h1{font-size:20px;margin:8px 0}.muted{color:#9cafd7;font-size:12px;line-height:2}.orb{width:174px;height:174px;margin:23px auto 17px;border-radius:50%;padding:5px;background:conic-gradient(#00eaff,#4b55ff,#b624ff,#00eaff);box-shadow:0 0 35px #154dff77}.orb button{width:100%;height:100%;border-radius:50%;border:1px solid #284783;background:radial-gradient(circle,#17214b,#05091b);color:white;font-size:59px;cursor:pointer}.state{font-size:22px;font-weight:bold}.hint{color:#a0b1d7;font-size:11px;line-height:1.9;margin-top:8px}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:18px 0}.card{border:1px solid #1b3062;background:#0a1430;border-radius:16px;padding:15px 5px;text-align:center}.ico{font-size:25px;color:#29dcff}.ct{font-size:12px;margin-top:8px}.small{font-size:10px;color:#9badd3;margin-top:6px}.game{display:flex;align-items:center;gap:13px;padding:16px;background:#0b1430;border:1px solid #1b3062;border-radius:17px}.game .emoji{font-size:31px}.game span{display:block;color:#a2b2d6;font-size:11px;margin-top:5px}.dot{margin-right:auto;color:#16e5a1;font-size:18px}.notice{margin-top:13px;padding:12px;border:1px solid #39326b;background:#11102b;border-radius:13px;color:#9eadd4;font-size:10px;line-height:1.9}.foot{text-align:center;color:#61749c;font-size:10px;margin:20px 0}
+          </style></head><body><main class="wrap"><header class="top"><div><div class="brand">IR_Khatary</div><div class="subbrand">PUBG MOBILE · DNS BOOSTER</div></div><div class="tag">GAMING MODE</div></header>
+          <section class="hero"><div class="art">🎮</div><h1>آماده ورود به میدان؟</h1><div class="muted">تجربه‌ای با استایل اختصاصی<br>برای گیمرهای IR_Khatary</div><div class="orb"><button id="go" aria-label="اتصال">⏻</button></div><div class="state" id="state">وصل نیست</div><div class="hint" id="hint">برای شروع، دکمه اتصال را لمس کن</div></section>
+          <section class="cards"><div class="card"><div class="ico">⚡</div><div class="ct">حالت سریع</div><div class="small">دسترسی آسان</div></div><div class="card"><div class="ico">◉</div><div class="ct">DNS گیمینگ</div><div class="small">تنظیمات داخلی</div></div><div class="card"><div class="ico">♢</div><div class="ct">رابط اختصاصی</div><div class="small">IR_Khatary</div></div></section>
+          <section class="game"><div class="emoji">🪖</div><div><b>PUBG Mobile</b><span>حالت بازی · پنل IR_Khatary</span></div><div class="dot">●</div></section><div class="notice">این نسخه نمایشی است؛ دکمه اتصال فعلاً فقط وضعیت نمایشی را تغییر می‌دهد و اتصال واقعی DNS یا VPN برقرار نمی‌کند.</div><div class="foot">ساخته‌شده برای IR_Khatary · نسخه 1.0</div></main>
+          <script>let on=false;document.getElementById('go').onclick=()=>{on=!on;document.getElementById('state').textContent=on?'حالت نمایشی فعال':'وصل نیست';document.getElementById('hint').textContent=on?'رابط کاربری فعال است؛ اتصال واقعی در نسخه بعدی اضافه می‌شود.':'برای شروع، دکمه اتصال را لمس کن';document.getElementById('go').style.color=on?'#2ce9a5':'white';}</script></body></html>
+          HTML
+          cat > settings.gradle <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+          rootProject.name = "IR_Khatary"
+          include(":app")
+          EOF
+          cat > build.gradle <<'EOF'
+          plugins { id 'com.android.application' version '8.7.3' apply false }
+          EOF
+          cat > app/build.gradle <<'EOF'
+          plugins { id 'com.android.application' }
+          android {
+              namespace 'com.irkhatary.app'
+              compileSdk 35
+              defaultConfig {
+                  applicationId 'com.irkhatary.app'
+                  minSdk 23
+                  targetSdk 28
+                  versionCode 1
+                  versionName '1.0'
+              }
+          }
+          EOF
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="IR_Khatary DNS" android:hardwareAccelerated="true" android:allowBackup="false">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+          cat > app/src/main/java/com/irkhatary/app/MainActivity.java <<'EOF'
+          package com.irkhatary.app;
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebView;
+          import android.webkit.WebSettings;
+          import android.webkit.WebViewClient;
+          public class MainActivity extends Activity {
+              @Override public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  WebView web = new WebView(this);
+                  WebSettings settings = web.getSettings();
+                  settings.setJavaScriptEnabled(true);
+                  settings.setDomStorageEnabled(true);
+                  web.setWebViewClient(new WebViewClient());
+                  setContentView(web);
+                  web.loadUrl("file:///android_asset/www/index.html");
+              }
+          }
+          EOF
 
       - name: Set up Java
         uses: actions/setup-java@v4
