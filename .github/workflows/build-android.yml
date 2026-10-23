@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/build-android.yml'
       - 'github-pages (2).zip'
+      - 'VERSION'
+      - 'README.md'
 
 permissions:
   contents: read
@@ -261,7 +263,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: IR-Khatary-Android-APK
+          name: IR-Khatary-DNS-v1.0-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
