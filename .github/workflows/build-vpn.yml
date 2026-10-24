@@ -58,6 +58,9 @@ jobs:
           EOF
           cat > vpn/app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <queries>
+                  <package android:name="ch.protonvpn.android" />
+              </queries>
               <application
                   android:allowBackup="false"
                   android:label="IR_Khatary VPN"
