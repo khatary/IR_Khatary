@@ -21,7 +21,7 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Generate Android VPN client
+      - name: Generate IR_Khatary companion app
         shell: bash
         run: |
           mkdir -p vpn/app/src/main/java/com/irkhatary/vpn vpn/app/src/main/res/values
@@ -47,31 +47,22 @@ jobs:
                   applicationId 'com.irkhatary.vpn'
                   minSdk 24
                   targetSdk 35
-                  versionCode 1
-                  versionName '1.0'
+                  versionCode 2
+                  versionName '1.0.1'
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
-                  coreLibraryDesugaringEnabled true
               }
-          }
-          dependencies {
-              implementation 'com.wireguard.android:tunnel:1.0.20260102'
-              coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
           }
           EOF
           cat > vpn/app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET" />
               <application
                   android:allowBackup="false"
                   android:label="IR_Khatary VPN"
-                  android:theme="@style/AppTheme"
-                  android:usesCleartextTraffic="false">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
+                  android:theme="@style/AppTheme">
+                  <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
@@ -85,10 +76,9 @@ jobs:
               <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
                   <item name="android:fontFamily">sans</item>
                   <item name="android:colorAccent">#16D9F5</item>
-                  <item name="android:navigationBarColor">#05091A</item>
                   <item name="android:statusBarColor">#05091A</item>
+                  <item name="android:navigationBarColor">#05091A</item>
                   <item name="android:windowLightStatusBar">false</item>
-                  <item name="android:windowActionModeOverlay">true</item>
               </style>
           </resources>
           EOF
@@ -96,292 +86,125 @@ jobs:
           package com.irkhatary.vpn;
 
           import android.app.Activity;
-          import android.app.AlertDialog;
-          import android.content.Intent;
-          import android.net.VpnService;
           import android.os.Bundle;
+          import android.content.Intent;
+          import android.net.Uri;
+          import android.graphics.Color;
+          import android.graphics.Typeface;
+          import android.graphics.drawable.GradientDrawable;
           import android.view.Gravity;
           import android.view.View;
           import android.widget.Button;
           import android.widget.LinearLayout;
-          import android.widget.ScrollView;
           import android.widget.TextView;
-          import android.graphics.Color;
-          import android.graphics.Typeface;
-          import android.graphics.drawable.GradientDrawable;
-          import android.net.Uri;
-          import android.database.Cursor;
-          import android.provider.OpenableColumns;
           import android.widget.Toast;
 
-          import com.wireguard.android.backend.GoBackend;
-          import com.wireguard.android.backend.Tunnel;
-          import com.wireguard.config.Config;
-
-          import java.io.File;
-          import java.io.FileInputStream;
-          import java.io.InputStream;
-          import java.io.FileOutputStream;
-          import java.nio.charset.StandardCharsets;
-          import java.util.concurrent.ExecutorService;
-          import java.util.concurrent.Executors;
-
           public class MainActivity extends Activity {
-              private static final int REQUEST_VPN_PERMISSION = 701;
-              private static final int REQUEST_CONFIG = 702;
-              private final ExecutorService worker = Executors.newSingleThreadExecutor();
-              private GoBackend backend;
-              private Config config;
-              private File configFile;
-              private Tunnel tunnel;
-              private TextView status, detail, configLabel, traffic;
-              private Button connectButton;
-              private boolean connected = false;
-              private boolean connecting = false;
+              private static final String PROVIDER_PACKAGE = "ch.protonvpn.android";
+              private static final String STORE_URL = "https://play.google.com/store/apps/details?id=ch.protonvpn.android";
+              private int dp(float n) { return (int)(n * getResources().getDisplayMetrics().density + 0.5f); }
 
-              @Override public void onCreate(Bundle savedInstanceState) {
-                  super.onCreate(savedInstanceState);
-                  getWindow().setStatusBarColor(Color.rgb(5,9,26));
-                  getWindow().setNavigationBarColor(Color.rgb(5,9,26));
-                  backend = new GoBackend(getApplicationContext());
-                  configFile = new File(getFilesDir(), "wireguard.conf");
-                  tunnel = new Tunnel() {
-                      @Override public String getName() { return "IR_Khatary"; }
-                      @Override public void onStateChange(State state) {
-                          runOnUiThread(() -> {
-                              connected = state == State.UP;
-                              connecting = false;
-                              renderState();
-                          });
-                      }
-                  };
-                  loadSavedConfig();
-                  buildUi();
+              private GradientDrawable shape(int color, int radius) {
+                  GradientDrawable d = new GradientDrawable();
+                  d.setColor(color);
+                  d.setCornerRadius(dp(radius));
+                  return d;
               }
 
-              private void buildUi() {
-                  ScrollView scroll = new ScrollView(this);
-                  scroll.setFillViewport(true);
-                  LinearLayout root = new LinearLayout(this);
-                  root.setOrientation(LinearLayout.VERTICAL);
-                  root.setPadding(dp(22), dp(22), dp(22), dp(26));
-                  root.setBackgroundColor(Color.rgb(5,9,26));
-                  scroll.addView(root);
-                  setContentView(scroll);
-
-                  TextView brand = text("IR_Khatary", 29, true, Color.rgb(42,224,248));
-                  root.addView(brand);
-                  TextView subtitle = text("WIREGUARD SECURE TUNNEL", 11, true, Color.rgb(143,164,204));
-                  subtitle.setLetterSpacing(0.12f);
-                  root.addView(subtitle, margin(0, dp(5), 0, dp(22)));
-
-                  LinearLayout hero = panel();
-                  hero.setGravity(Gravity.CENTER);
-                  hero.setPadding(dp(18), dp(24), dp(18), dp(24));
-                  root.addView(hero, margin(0,0,0,dp(16)));
-                  TextView shield = text("◈", 48, true, Color.rgb(36,221,247));
-                  hero.addView(shield);
-                  status = text("آماده اتصال", 22, true, Color.WHITE);
-                  hero.addView(status, margin(0,dp(8),0,dp(5)));
-                  detail = text("برای شروع، کانفیگ WireGuard خودت را وارد کن.", 13, false, Color.rgb(160,178,216));
-                  detail.setGravity(Gravity.CENTER);
-                  hero.addView(detail);
-
-                  connectButton = button("اتصال امن");
-                  hero.addView(connectButton, margin(0,dp(22),0,0));
-                  connectButton.setOnClickListener(v -> toggleConnection());
-
-                  LinearLayout cfg = panel();
-                  cfg.setPadding(dp(16),dp(17),dp(16),dp(17));
-                  root.addView(cfg, margin(0,0,0,dp(12)));
-                  cfg.addView(text("پروفایل WireGuard",16,true,Color.WHITE));
-                  configLabel = text("هیچ فایلی وارد نشده",12,false,Color.rgb(157,176,213));
-                  cfg.addView(configLabel, margin(0,dp(9),0,dp(13)));
-                  Button importButton = button("وارد کردن فایل .conf");
-                  cfg.addView(importButton);
-                  importButton.setOnClickListener(v -> pickConfig());
-
-                  LinearLayout stats = panel();
-                  stats.setPadding(dp(16),dp(15),dp(16),dp(15));
-                  root.addView(stats, margin(0,0,0,dp(12)));
-                  stats.addView(text("آمار تونل",15,true,Color.WHITE));
-                  traffic = text("دریافت: —  •  ارسال: —",12,false,Color.rgb(157,176,213));
-                  stats.addView(traffic, margin(0,dp(8),0,0));
-
-                  TextView note = text("این برنامه از کتابخانه رسمی WireGuard استفاده می‌کند. برای اتصال واقعی به یک سرور فعال، فایل کانفیگ معتبر لازم است. تا زمان برقراری تونل، وضعیت متصل نمایش داده نمی‌شود.",11,false,Color.rgb(143,158,190));
-                  note.setLineSpacing(dp(4),1f);
-                  root.addView(note, margin(dp(3),dp(6),dp(3),0));
-                  renderState();
-              }
-
-              private void loadSavedConfig() {
-                  if (!configFile.isFile()) return;
-                  try (InputStream in = new FileInputStream(configFile)) {
-                      config = Config.parse(in);
-                  } catch (Exception e) {
-                      config = null;
-                  }
-              }
-
-              private void pickConfig() {
-                  Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                  intent.addCategory(Intent.CATEGORY_OPENABLE);
-                  intent.setType("*/*");
-                  startActivityForResult(intent, REQUEST_CONFIG);
-              }
-
-              @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-                  super.onActivityResult(requestCode, resultCode, data);
-                  if (requestCode == REQUEST_CONFIG && resultCode == RESULT_OK && data != null && data.getData() != null) {
-                      Uri uri = data.getData();
-                      worker.execute(() -> {
-                          try (InputStream in = getContentResolver().openInputStream(uri)) {
-                              if (in == null) throw new IllegalStateException("فایل قابل خواندن نیست");
-                              Config parsed = Config.parse(in);
-                              try (InputStream saveIn = getContentResolver().openInputStream(uri);
-                                   FileOutputStream out = new FileOutputStream(configFile, false)) {
-                                  if (saveIn == null) throw new IllegalStateException("فایل قابل خواندن نیست");
-                                  byte[] buffer = new byte[8192];
-                                  int n;
-                                  while ((n = saveIn.read(buffer)) > 0) out.write(buffer, 0, n);
-                              }
-                              config = parsed;
-                              runOnUiThread(() -> {
-                                  configLabel.setText("کانفیگ معتبر وارد شد (کلیدها فقط داخل حافظه خصوصی برنامه ذخیره می‌شوند).");
-                                  detail.setText("کانفیگ آماده است؛ برای اتصال، ادامه بده.");
-                                  Toast.makeText(this, "کانفیگ WireGuard وارد شد", Toast.LENGTH_SHORT).show();
-                              });
-                          } catch (Exception e) {
-                              runOnUiThread(() -> new AlertDialog.Builder(this).setTitle("خطا در کانفیگ").setMessage("این فایل کانفیگ WireGuard معتبر نیست یا قابل خواندن نیست.").setPositiveButton("باشه", null).show());
-                          }
-                      });
-                  } else if (requestCode == REQUEST_VPN_PERMISSION && resultCode == RESULT_OK) {
-                      startTunnel();
-                  } else if (requestCode == REQUEST_VPN_PERMISSION) {
-                      connecting = false;
-                      renderState();
-                      Toast.makeText(this, "مجوز VPN داده نشد", Toast.LENGTH_SHORT).show();
-                  }
-              }
-
-              private void toggleConnection() {
-                  if (connecting) return;
-                  if (connected) {
-                      connecting = true;
-                      renderState();
-                      worker.execute(() -> {
-                          try { backend.setState(tunnel, Tunnel.State.DOWN, null); }
-                          catch (Exception e) { runOnUiThread(() -> Toast.makeText(this, "قطع اتصال کامل نشد", Toast.LENGTH_LONG).show()); }
-                          runOnUiThread(() -> { connected = false; connecting = false; renderState(); });
-                      });
-                      return;
-                  }
-                  if (config == null) {
-                      new AlertDialog.Builder(this).setTitle("کانفیگ لازم است").setMessage("برای VPN واقعی، یک فایل کانفیگ WireGuard (.conf) از سرور فعال وارد کن. این برنامه سرور رایگان را خودکار ایجاد نمی‌کند.").setPositiveButton("وارد کردن فایل", (d,w) -> pickConfig()).setNegativeButton("بعداً", null).show();
-                      return;
-                  }
-                  Intent prepare = VpnService.prepare(this);
-                  if (prepare != null) startActivityForResult(prepare, REQUEST_VPN_PERMISSION);
-                  else startTunnel();
-              }
-
-              private void startTunnel() {
-                  connecting = true;
-                  renderState();
-                  worker.execute(() -> {
-                      try {
-                          backend.setState(tunnel, Tunnel.State.UP, config);
-                          runOnUiThread(() -> {
-                              connected = backend.getRunningTunnelNames().contains(tunnel.getName());
-                              connecting = false;
-                              renderState();
-                          });
-                      } catch (Exception e) {
-                          runOnUiThread(() -> {
-                              connected = false;
-                              connecting = false;
-                              renderState();
-                              new AlertDialog.Builder(this).setTitle("اتصال برقرار نشد").setMessage("تونل WireGuard بالا نیامد. آدرس سرور، کلیدها، پورت و دسترسی شبکه را بررسی کن.").setPositiveButton("باشه", null).show();
-                          });
-                      }
-                  });
-              }
-
-              private void renderState() {
-                  if (status == null) return;
-                  if (connecting) {
-                      status.setText("در حال اتصال…");
-                      detail.setText("در انتظار نتیجه واقعی تونل");
-                      connectButton.setText("لطفاً صبر کن");
-                  } else if (connected) {
-                      status.setText("تونل محلی فعال");
-                      detail.setText("وضعیت UP ثبت شده؛ پاسخ سرور و دسترسی اینترنت هنوز جداگانه تأیید نشده است.");
-                      connectButton.setText("قطع اتصال");
-                  } else {
-                      status.setText("وصل نیست");
-                      detail.setText(config == null ? "برای شروع، کانفیگ WireGuard خودت را وارد کن." : "کانفیگ بارگذاری شده؛ آماده تلاش برای اتصال.");
-                      connectButton.setText("اتصال امن");
-                  }
-              }
-
-              private LinearLayout panel() {
-                  LinearLayout box = new LinearLayout(this);
-                  box.setOrientation(LinearLayout.VERTICAL);
-                  GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                      new int[]{Color.rgb(15,29,61),Color.rgb(9,15,37)});
-                  bg.setCornerRadius(dp(19));
-                  bg.setStroke(dp(1), Color.rgb(31,59,103));
-                  box.setBackground(bg);
-                  return box;
-              }
-              private Button button(String label) {
-                  Button b = new Button(this);
-                  b.setText(label);
-                  b.setTextColor(Color.rgb(3,12,27));
-                  b.setTextSize(14);
-                  b.setAllCaps(false);
-                  b.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
-                  GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                      new int[]{Color.rgb(39,224,246),Color.rgb(91,144,255)});
-                  bg.setCornerRadius(dp(15));
-                  b.setBackground(bg);
-                  b.setPadding(dp(15),dp(9),dp(15),dp(9));
-                  return b;
-              }
-              private TextView text(String value, int size, boolean bold, int color) {
+              private TextView text(String value, int size, int color, boolean bold) {
                   TextView t = new TextView(this);
                   t.setText(value);
                   t.setTextSize(size);
                   t.setTextColor(color);
-                  if (bold) t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+                  t.setGravity(Gravity.CENTER);
+                  if (bold) t.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                  t.setPadding(dp(8), dp(8), dp(8), dp(8));
                   return t;
               }
-              private LinearLayout.LayoutParams margin(int l,int t,int r,int b) {
-                  LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1,-2);
-                  p.setMargins(l,t,r,b);
-                  return p;
+
+              private Button button(String label) {
+                  Button b = new Button(this);
+                  b.setText(label);
+                  b.setAllCaps(false);
+                  b.setTextSize(16);
+                  b.setTextColor(Color.WHITE);
+                  b.setBackground(shape(Color.rgb(18, 120, 170), 18));
+                  b.setPadding(dp(12), dp(10), dp(12), dp(10));
+                  return b;
               }
-              private int dp(int v) { return (int)(v*getResources().getDisplayMetrics().density+0.5f); }
-              private String bytes(long n) {
-                  if (n < 1024) return n + " B";
-                  if (n < 1024*1024) return String.format(java.util.Locale.US,"%.1f KB",n/1024.0);
-                  if (n < 1024L*1024*1024) return String.format(java.util.Locale.US,"%.1f MB",n/(1024.0*1024));
-                  return String.format(java.util.Locale.US,"%.2f GB",n/(1024.0*1024*1024));
+
+              private void openProvider() {
+                  Intent launch = getPackageManager().getLaunchIntentForPackage(PROVIDER_PACKAGE);
+                  if (launch != null) {
+                      launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                      startActivity(launch);
+                      Toast.makeText(this, "اتصال را داخل برنامه رسمی Proton VPN شروع کنید.", Toast.LENGTH_LONG).show();
+                  } else {
+                      Intent store = new Intent(Intent.ACTION_VIEW, Uri.parse(STORE_URL));
+                      startActivity(store);
+                  }
               }
-              @Override protected void onDestroy() {
-                  worker.shutdown();
-                  super.onDestroy();
+
+              @Override public void onCreate(Bundle state) {
+                  super.onCreate(state);
+                  getWindow().setStatusBarColor(Color.rgb(5, 9, 26));
+                  getWindow().setNavigationBarColor(Color.rgb(5, 9, 26));
+                  getWindow().getDecorView().setSystemUiVisibility(0);
+
+                  LinearLayout root = new LinearLayout(this);
+                  root.setOrientation(LinearLayout.VERTICAL);
+                  root.setGravity(Gravity.CENTER_HORIZONTAL);
+                  root.setPadding(dp(24), dp(32), dp(24), dp(24));
+                  root.setBackgroundColor(Color.rgb(5, 9, 26));
+
+                  TextView logo = text("IR", 42, Color.rgb(22, 217, 245), true);
+                  logo.setBackground(shape(Color.rgb(13, 27, 55), 28));
+                  LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(dp(112), dp(100));
+                  logoParams.bottomMargin = dp(20);
+                  root.addView(logo, logoParams);
+
+                  root.addView(text("IR_Khatary VPN", 26, Color.WHITE, true));
+                  root.addView(text("اتصال امن با سرویس رایگان", 17, Color.rgb(22, 217, 245), true));
+
+                  TextView info = text(
+                      "برای اتصال واقعی و رمزگذاری‌شده، این نسخه از سرویس رسمی Proton VPN استفاده می‌کند. دکمه زیر برنامه رسمی را باز می‌کند؛ اگر نصب نباشد، صفحه نصب آن باز می‌شود. اتصال داخل Proton VPN انجام می‌شود، نه داخل IR_Khatary.",
+                      15, Color.LTGRAY, false);
+                  info.setGravity(Gravity.CENTER);
+                  info.setLineSpacing(dp(4), 1.0f);
+                  info.setBackground(shape(Color.rgb(13, 20, 42), 20));
+                  info.setPadding(dp(18), dp(18), dp(18), dp(18));
+                  LinearLayout.LayoutParams infoParams = new LinearLayout.LayoutParams(-1, -2);
+                  infoParams.topMargin = dp(28);
+                  infoParams.bottomMargin = dp(24);
+                  root.addView(info, infoParams);
+
+                  Button connect = button("باز کردن سرویس VPN واقعی");
+                  connect.setOnClickListener(v -> openProvider());
+                  root.addView(connect, new LinearLayout.LayoutParams(-1, dp(58)));
+
+                  Button help = button("راهنمای اتصال");
+                  help.setBackground(shape(Color.rgb(35, 47, 73), 18));
+                  LinearLayout.LayoutParams helpParams = new LinearLayout.LayoutParams(-1, dp(54));
+                  helpParams.topMargin = dp(12);
+                  root.addView(help, helpParams);
+                  help.setOnClickListener(v -> new android.app.AlertDialog.Builder(this)
+                      .setTitle("راهنمای اتصال")
+                      .setMessage("۱) برنامه رسمی Proton VPN را باز یا نصب کنید.\n۲) در صورت نیاز حساب رایگان بسازید یا حالت مهمان را انتخاب کنید.\n۳) روی Connect بزنید و درخواست VPN اندروید را تأیید کنید.\n۴) وضعیت اتصال را در خود Proton VPN و آیکون کلید بالای گوشی بررسی کنید.\n\nIR_Khatary وضعیت اتصال Proton را جعل نمی‌کند و ترافیک را خودش تونل نمی‌کند.")
+                      .setPositiveButton("متوجه شدم", null).show());
+
+                  TextView footer = text("نسخه 1.0.1 • بدون سرور پولی اختصاصی", 12, Color.GRAY, false);
+                  LinearLayout.LayoutParams footerParams = new LinearLayout.LayoutParams(-1, -2);
+                  footerParams.topMargin = dp(28);
+                  root.addView(footer, footerParams);
+                  setContentView(root);
               }
           }
           EOF
-
       - name: Build debug APK
         run: gradle --no-daemon -p vpn assembleDebug
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: IR-Khatary-VPN-v1.0-APK
+          name: IR-Khatary-VPN-v1.0.1-APK
           path: vpn/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-          retention-days: 14
