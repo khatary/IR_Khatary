@@ -116,7 +116,6 @@ jobs:
 
           import com.wireguard.android.backend.GoBackend;
           import com.wireguard.android.backend.Tunnel;
-          import com.wireguard.android.backend.Statistics;
           import com.wireguard.config.Config;
 
           import java.io.File;
