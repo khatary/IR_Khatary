@@ -155,9 +155,6 @@ jobs:
                               renderState();
                           });
                       }
-                      @Override public void onStatistics(Statistics statistics) {
-                          runOnUiThread(() -> traffic.setText("دریافت: " + bytes(statistics.totalRx()) + "  •  ارسال: " + bytes(statistics.totalTx())));
-                      }
                   };
                   loadSavedConfig();
                   buildUi();
