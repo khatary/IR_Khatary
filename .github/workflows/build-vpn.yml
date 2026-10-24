@@ -326,8 +326,8 @@ jobs:
                       detail.setText("در انتظار نتیجه واقعی تونل");
                       connectButton.setText("لطفاً صبر کن");
                   } else if (connected) {
-                      status.setText("تونل فعال");
-                      detail.setText("WireGuard در حال اجراست؛ دسترسی اینترنت به سرور و کانفیگ بستگی دارد.");
+                      status.setText("تونل محلی فعال");
+                      detail.setText("وضعیت UP ثبت شده؛ پاسخ سرور و دسترسی اینترنت هنوز جداگانه تأیید نشده است.");
                       connectButton.setText("قطع اتصال");
                   } else {
                       status.setText("وصل نیست");
