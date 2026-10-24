@@ -14,200 +14,36 @@ jobs:
   build-vpn:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Checkout IR_Khatary project
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-
-      - name: Generate IR_Khatary companion app
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Get open-source VPN Gate client foundation
+        run: |
+          git clone --depth 1 https://github.com/hoang-rio/vpngate-connector.git vpn-upstream
+          cd vpn-upstream
+          sed -i 's#<string name="app_name" translatable="false">VPN Gate Connector</string>#<string name="app_name" translatable="false">IR_Khatary VPN</string>#' app/src/main/res/values/strings.xml
+      - name: Build integrated VPN Gate client
+        working-directory: vpn-upstream
+        env:
+          SIGN_KEY_PASSWORD: ''
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleFreeDebug
+      - name: Find and upload APK
         shell: bash
         run: |
-          mkdir -p vpn/app/src/main/java/com/irkhatary/vpn vpn/app/src/main/res/values
-          cat > vpn/settings.gradle <<'EOF'
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
-          rootProject.name = "IR_Khatary_VPN"
-          include(":app")
-          EOF
-          cat > vpn/build.gradle <<'EOF'
-          plugins { id 'com.android.application' version '8.7.3' apply false }
-          EOF
-          cat > vpn/gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx3g -Dfile.encoding=UTF-8
-          android.useAndroidX=true
-          EOF
-          cat > vpn/app/build.gradle <<'EOF'
-          plugins { id 'com.android.application' }
-          android {
-              namespace 'com.irkhatary.vpn'
-              compileSdk 35
-              defaultConfig {
-                  applicationId 'com.irkhatary.vpn'
-                  minSdk 24
-                  targetSdk 35
-                  versionCode 2
-                  versionName '1.0.1'
-              }
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-          }
-          EOF
-          cat > vpn/app/src/main/AndroidManifest.xml <<'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <queries>
-                  <package android:name="ch.protonvpn.android" />
-              </queries>
-              <application
-                  android:allowBackup="false"
-                  android:label="IR_Khatary VPN"
-                  android:theme="@style/AppTheme">
-                  <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          EOF
-          cat > vpn/app/src/main/res/values/styles.xml <<'EOF'
-          <resources>
-              <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
-                  <item name="android:fontFamily">sans</item>
-                  <item name="android:colorAccent">#16D9F5</item>
-                  <item name="android:statusBarColor">#05091A</item>
-                  <item name="android:navigationBarColor">#05091A</item>
-                  <item name="android:windowLightStatusBar">false</item>
-              </style>
-          </resources>
-          EOF
-          cat > vpn/app/src/main/java/com/irkhatary/vpn/MainActivity.java <<'EOF'
-          package com.irkhatary.vpn;
-
-          import android.app.Activity;
-          import android.os.Bundle;
-          import android.content.Intent;
-          import android.net.Uri;
-          import android.graphics.Color;
-          import android.graphics.Typeface;
-          import android.graphics.drawable.GradientDrawable;
-          import android.view.Gravity;
-          import android.view.View;
-          import android.widget.Button;
-          import android.widget.LinearLayout;
-          import android.widget.TextView;
-          import android.widget.Toast;
-
-          public class MainActivity extends Activity {
-              private static final String PROVIDER_PACKAGE = "ch.protonvpn.android";
-              private static final String STORE_URL = "https://play.google.com/store/apps/details?id=ch.protonvpn.android";
-              private int dp(float n) { return (int)(n * getResources().getDisplayMetrics().density + 0.5f); }
-
-              private GradientDrawable shape(int color, int radius) {
-                  GradientDrawable d = new GradientDrawable();
-                  d.setColor(color);
-                  d.setCornerRadius(dp(radius));
-                  return d;
-              }
-
-              private TextView text(String value, int size, int color, boolean bold) {
-                  TextView t = new TextView(this);
-                  t.setText(value);
-                  t.setTextSize(size);
-                  t.setTextColor(color);
-                  t.setGravity(Gravity.CENTER);
-                  if (bold) t.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-                  t.setPadding(dp(8), dp(8), dp(8), dp(8));
-                  return t;
-              }
-
-              private Button button(String label) {
-                  Button b = new Button(this);
-                  b.setText(label);
-                  b.setAllCaps(false);
-                  b.setTextSize(16);
-                  b.setTextColor(Color.WHITE);
-                  b.setBackground(shape(Color.rgb(18, 120, 170), 18));
-                  b.setPadding(dp(12), dp(10), dp(12), dp(10));
-                  return b;
-              }
-
-              private void openProvider() {
-                  Intent launch = getPackageManager().getLaunchIntentForPackage(PROVIDER_PACKAGE);
-                  if (launch != null) {
-                      launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                      startActivity(launch);
-                      Toast.makeText(this, "اتصال را داخل برنامه رسمی Proton VPN شروع کنید.", Toast.LENGTH_LONG).show();
-                  } else {
-                      Intent store = new Intent(Intent.ACTION_VIEW, Uri.parse(STORE_URL));
-                      startActivity(store);
-                  }
-              }
-
-              @Override public void onCreate(Bundle state) {
-                  super.onCreate(state);
-                  getWindow().setStatusBarColor(Color.rgb(5, 9, 26));
-                  getWindow().setNavigationBarColor(Color.rgb(5, 9, 26));
-                  getWindow().getDecorView().setSystemUiVisibility(0);
-
-                  LinearLayout root = new LinearLayout(this);
-                  root.setOrientation(LinearLayout.VERTICAL);
-                  root.setGravity(Gravity.CENTER_HORIZONTAL);
-                  root.setPadding(dp(24), dp(32), dp(24), dp(24));
-                  root.setBackgroundColor(Color.rgb(5, 9, 26));
-
-                  TextView logo = text("IR", 42, Color.rgb(22, 217, 245), true);
-                  logo.setBackground(shape(Color.rgb(13, 27, 55), 28));
-                  LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(dp(112), dp(100));
-                  logoParams.bottomMargin = dp(20);
-                  root.addView(logo, logoParams);
-
-                  root.addView(text("IR_Khatary VPN", 26, Color.WHITE, true));
-                  root.addView(text("اتصال امن با سرویس رایگان", 17, Color.rgb(22, 217, 245), true));
-
-                  TextView info = text(
-                      "برای اتصال واقعی و رمزگذاری‌شده، این نسخه از سرویس رسمی Proton VPN استفاده می‌کند. دکمه زیر برنامه رسمی را باز می‌کند؛ اگر نصب نباشد، صفحه نصب آن باز می‌شود. اتصال داخل Proton VPN انجام می‌شود، نه داخل IR_Khatary.",
-                      15, Color.LTGRAY, false);
-                  info.setGravity(Gravity.CENTER);
-                  info.setLineSpacing(dp(4), 1.0f);
-                  info.setBackground(shape(Color.rgb(13, 20, 42), 20));
-                  info.setPadding(dp(18), dp(18), dp(18), dp(18));
-                  LinearLayout.LayoutParams infoParams = new LinearLayout.LayoutParams(-1, -2);
-                  infoParams.topMargin = dp(28);
-                  infoParams.bottomMargin = dp(24);
-                  root.addView(info, infoParams);
-
-                  Button connect = button("باز کردن سرویس VPN واقعی");
-                  connect.setOnClickListener(v -> openProvider());
-                  root.addView(connect, new LinearLayout.LayoutParams(-1, dp(58)));
-
-                  Button help = button("راهنمای اتصال");
-                  help.setBackground(shape(Color.rgb(35, 47, 73), 18));
-                  LinearLayout.LayoutParams helpParams = new LinearLayout.LayoutParams(-1, dp(54));
-                  helpParams.topMargin = dp(12);
-                  root.addView(help, helpParams);
-                  help.setOnClickListener(v -> new android.app.AlertDialog.Builder(this)
-                      .setTitle("راهنمای اتصال")
-                      .setMessage("۱) برنامه رسمی Proton VPN را باز یا نصب کنید.\n۲) در صورت نیاز حساب رایگان بسازید یا حالت مهمان را انتخاب کنید.\n۳) روی Connect بزنید و درخواست VPN اندروید را تأیید کنید.\n۴) وضعیت اتصال را در خود Proton VPN و آیکون کلید بالای گوشی بررسی کنید.\n\nIR_Khatary وضعیت اتصال Proton را جعل نمی‌کند و ترافیک را خودش تونل نمی‌کند.")
-                      .setPositiveButton("متوجه شدم", null).show());
-
-                  TextView footer = text("نسخه 1.0.1 • بدون سرور پولی اختصاصی", 12, Color.GRAY, false);
-                  LinearLayout.LayoutParams footerParams = new LinearLayout.LayoutParams(-1, -2);
-                  footerParams.topMargin = dp(28);
-                  root.addView(footer, footerParams);
-                  setContentView(root);
-              }
-          }
-          EOF
-      - name: Build debug APK
-        run: gradle --no-daemon -p vpn assembleDebug
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+          APK="$(find vpn-upstream -path '*/build/outputs/apk/*/*/*.apk' -type f | head -n 1)"
+          test -n "$APK"
+          mkdir -p output
+          cp "$APK" output/IR-Khatary-VPN-v1.1.0-debug.apk
+      - uses: actions/upload-artifact@v4
         with:
-          name: IR-Khatary-VPN-v1.0.1-APK
-          path: vpn/app/build/outputs/apk/debug/app-debug.apk
+          name: IR-Khatary-VPN-v1.1.0-APK
+          path: output/IR-Khatary-VPN-v1.1.0-debug.apk
           if-no-files-found: error
