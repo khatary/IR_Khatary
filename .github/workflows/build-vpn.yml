@@ -23,10 +23,14 @@ jobs:
           java-version: '17'
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
-      - name: Get open-source VPN Gate client foundation
+      - name: Get open-source VPN Gate client and its required modules
         run: |
-          git clone --depth 1 https://github.com/hoang-rio/vpngate-connector.git vpn-upstream
+          # The upstream project records its submodules with SSH URLs.
+          # Rewrite them to HTTPS so GitHub Actions can fetch them without SSH keys.
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git clone --depth 1 --recurse-submodules https://github.com/hoang-rio/vpngate-connector.git vpn-upstream
           cd vpn-upstream
+          git submodule update --init --recursive
           sed -i 's#<string name="app_name" translatable="false">VPN Gate Connector</string>#<string name="app_name" translatable="false">IR_Khatary VPN</string>#' app/src/main/res/values/strings.xml
       - name: Build integrated VPN Gate client
         working-directory: vpn-upstream
