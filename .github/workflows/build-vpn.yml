@@ -22,7 +22,7 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
       - name: Get open-source VPN Gate client foundation
         run: |
           git clone --depth 1 https://github.com/hoang-rio/vpngate-connector.git vpn-upstream
