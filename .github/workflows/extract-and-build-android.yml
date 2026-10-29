@@ -28,6 +28,11 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
       - name: Extract archive without editing its files
         shell: bash
         run: |
@@ -37,11 +42,11 @@ jobs:
           unzip -q IR_Khatary_DNS_v2.zip -d /tmp/ir-khatary-source
           echo "Archive entries:"
           unzip -Z1 IR_Khatary_DNS_v2.zip
-          # Never copy archive metadata into the checkout's .git directory.
           rm -rf /tmp/ir-khatary-source/.git
-          # Preserve the ZIP and copy all archived files at their original relative paths.
           cp -a /tmp/ir-khatary-source/. .
-          git add -A
+          # GitHub's connected app cannot push new workflow files. Commit all
+          # extracted project files except the archive's own workflow definition.
+          git add -A -- . ':!.github/workflows/build.yml'
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -56,24 +61,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          WRAPPER="$(find . -type f -name gradlew -not -path './.git/*' -not -path './.gradle/*' | head -n 1)"
-          if [ -z "$WRAPPER" ]; then
-            echo "No Gradle wrapper (gradlew) found in the extracted archive."
-            echo "Files at repository root:"
-            find . -maxdepth 3 -type f | sort | head -200
+          if [ ! -f settings.gradle ] && [ ! -f settings.gradle.kts ]; then
+            echo "No Gradle settings file found."
             exit 1
           fi
-          PROJECT_DIR="$(dirname "$WRAPPER")"
-          echo "dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
-          echo "Found Gradle project at: $PROJECT_DIR"
+          echo "dir=." >> "$GITHUB_OUTPUT"
+          echo "Found Gradle project at repository root."
 
       - name: Build Android debug APK
-        working-directory: ${{ steps.project.outputs.dir }}
         shell: bash
         run: |
           set -euo pipefail
-          chmod +x ./gradlew
-          ./gradlew --no-daemon assembleDebug
+          gradle --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
