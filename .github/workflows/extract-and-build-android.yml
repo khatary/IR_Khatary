@@ -37,10 +37,10 @@ jobs:
           unzip -q IR_Khatary_DNS_v2.zip -d /tmp/ir-khatary-source
           echo "Archive entries:"
           unzip -Z1 IR_Khatary_DNS_v2.zip
-          # Copy the archive's original relative paths into the repository.
-          # Keep the uploaded ZIP and do not rewrite the extracted file contents.
+          # Never copy archive metadata into the checkout's .git directory.
+          rm -rf /tmp/ir-khatary-source/.git
+          # Preserve the ZIP and copy all archived files at their original relative paths.
           cp -a /tmp/ir-khatary-source/. .
-          rm -rf .git
           git add -A
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
