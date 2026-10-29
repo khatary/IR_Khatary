@@ -1,0 +1,84 @@
+name: Extract source ZIP and build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'IR_Khatary_DNS_v2.zip'
+      - '.github/workflows/extract-and-build-android.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  extract-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Extract archive without editing its files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f IR_Khatary_DNS_v2.zip
+          mkdir -p /tmp/ir-khatary-source
+          unzip -q IR_Khatary_DNS_v2.zip -d /tmp/ir-khatary-source
+          echo "Archive entries:"
+          unzip -Z1 IR_Khatary_DNS_v2.zip
+          # Copy the archive's original relative paths into the repository.
+          # Keep the uploaded ZIP and do not rewrite the extracted file contents.
+          cp -a /tmp/ir-khatary-source/. .
+          rm -rf .git
+          git add -A
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Extract Android source files from uploaded ZIP"
+            git push origin HEAD:main
+          else
+            echo "No new extracted files to commit."
+          fi
+
+      - name: Locate Android Gradle project
+        id: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          WRAPPER="$(find . -type f -name gradlew -not -path './.git/*' -not -path './.gradle/*' | head -n 1)"
+          if [ -z "$WRAPPER" ]; then
+            echo "No Gradle wrapper (gradlew) found in the extracted archive."
+            echo "Files at repository root:"
+            find . -maxdepth 3 -type f | sort | head -200
+            exit 1
+          fi
+          PROJECT_DIR="$(dirname "$WRAPPER")"
+          echo "dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+          echo "Found Gradle project at: $PROJECT_DIR"
+
+      - name: Build Android debug APK
+        working-directory: ${{ steps.project.outputs.dir }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-Android-debug-APK
+          path: |
+            **/build/outputs/apk/**/*.apk
+          if-no-files-found: error
