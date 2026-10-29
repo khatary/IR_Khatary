@@ -31,7 +31,7 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.7'
+          gradle-version: '8.9'
 
       - name: Extract archive without editing its files
         shell: bash
@@ -44,8 +44,6 @@ jobs:
           unzip -Z1 IR_Khatary_DNS_v2.zip
           rm -rf /tmp/ir-khatary-source/.git
           cp -a /tmp/ir-khatary-source/. .
-          # GitHub's connected app cannot push new workflow files. Commit all
-          # extracted project files except the archive's own workflow definition.
           git add -A -- . ':!.github/workflows/build.yml'
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
@@ -61,23 +59,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -f settings.gradle ] && [ ! -f settings.gradle.kts ]; then
-            echo "No Gradle settings file found."
-            exit 1
-          fi
+          test -f settings.gradle -o -f settings.gradle.kts
           echo "dir=." >> "$GITHUB_OUTPUT"
           echo "Found Gradle project at repository root."
 
       - name: Build Android debug APK
         shell: bash
-        run: |
-          set -euo pipefail
-          gradle --no-daemon assembleDebug
+        run: gradle --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: IR-Khatary-Android-debug-APK
-          path: |
-            **/build/outputs/apk/**/*.apk
+          path: '**/build/outputs/apk/**/*.apk'
           if-no-files-found: error
