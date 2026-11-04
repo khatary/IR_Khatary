@@ -43,7 +43,7 @@ jobs:
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           s = manifest.read_text()
           if 'android.permission.INTERNET' not in s:
-              s = s.replace('<application', '<uses-permission android:name="android.permission.INTERNET" />\\n    <application', 1)
+              s = s.replace('<application', '<uses-permission android:name="android.permission.INTERNET" />' + chr(10) + '    <application', 1)
           s = s.replace('<application', '<application android:extractNativeLibs="true"', 1)
           s = s.replace('android:label="vpn_king"', 'android:label="VPN KING"')
           manifest.write_text(s)
