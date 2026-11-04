@@ -30,6 +30,8 @@ jobs:
           cache: true
       - name: Generate Android platform files
         run: flutter create --platforms=android --org com.vpnking --project-name vpn_king .
+      - name: Remove generated placeholder tests
+        run: rm -rf test
       - name: Configure Android manifest and SDK
         shell: bash
         run: |
