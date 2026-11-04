@@ -1,0 +1,17 @@
+name: vpn_king
+description: VPN KING - tunnel VPN client
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_v2ray: ^1.0.10
+  file_picker: ^8.0.0
+  shared_preferences: ^2.2.3
+
+flutter:
+  uses-material-design: true
