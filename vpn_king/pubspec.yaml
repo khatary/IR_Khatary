@@ -12,6 +12,7 @@ dependencies:
   flutter_v2ray: ^1.0.10
   file_picker: ^8.0.0
   shared_preferences: ^2.2.3
+  provider: ^6.1.2
 
 flutter:
   uses-material-design: true
