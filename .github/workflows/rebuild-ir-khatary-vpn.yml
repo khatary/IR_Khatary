@@ -151,9 +151,11 @@ jobs:
 
           class _HomePageState extends State<HomePage> {
             final List<VpnProfile> _profiles = [];
-            final FlutterVless _engine = FlutterVless(onStatusChanged: _statusSink);
-            static void _statusSink(VlessStatus status) {}
             VlessStatus _status = VlessStatus();
+            late final FlutterVless _engine = FlutterVless(onStatusChanged: (status) {
+              if (!mounted) return;
+              setState(() => _status = status);
+            });
             int _selected = -1;
             bool _ready = false;
             bool _busy = false;
