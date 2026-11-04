@@ -1,0 +1,111 @@
+name: Import VPN KING and build APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'vpn_king.zip'
+      - '.github/workflows/import-vpn-king.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  import-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Extract the uploaded VPN KING project
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f vpn_king.zip
+          rm -rf /tmp/vpn-king-import
+          mkdir -p /tmp/vpn-king-import
+          unzip -q vpn_king.zip -d /tmp/vpn-king-import
+          test -f /tmp/vpn-king-import/vpn_king/pubspec.yaml
+          test -f /tmp/vpn-king-import/vpn_king/lib/main.dart
+          rm -rf vpn_king
+          cp -a /tmp/vpn-king-import/vpn_king ./vpn_king
+          echo "Imported project files:"
+          find vpn_king -maxdepth 4 -type f | sort
+
+      - name: Generate missing Android platform files if needed
+        working-directory: vpn_king
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f android/app/build.gradle ] && [ ! -f android/app/build.gradle.kts ]; then
+            flutter create --platforms=android --project-name vpn_king .
+          fi
+
+      - name: Ensure Android compile SDK is at least 36
+        working-directory: vpn_king
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          candidates = [Path("android/app/build.gradle"), Path("android/app/build.gradle.kts")]
+          found = False
+          for path in candidates:
+              if not path.exists():
+                  continue
+              text = path.read_text()
+              text2 = re.sub(r'compileSdkVersion\\s+34', 'compileSdkVersion 36', text)
+              text2 = re.sub(r'compileSdk\\s*=\\s*34', 'compileSdk = 36', text2)
+              text2 = re.sub(r'compileSdk\\s+34', 'compileSdk 36', text2)
+              if text2 != text:
+                  path.write_text(text2)
+              found = True
+          if not found:
+              raise SystemExit("Android app Gradle file was not generated.")
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+(36|flutter.compileSdkVersion)' android/app
+
+      - name: Resolve Flutter dependencies
+        working-directory: vpn_king
+        run: flutter pub get
+
+      - name: Commit extracted project and generated Android files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A vpn_king
+          if ! git diff --cached --quiet; then
+            git commit -m "Import VPN KING project and prepare Android platform"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+        working-directory: vpn_king
+        run: flutter build apk --release
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VPN-KING-release
+          path: vpn_king/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
