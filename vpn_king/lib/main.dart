@@ -53,7 +53,7 @@ class _HomePageState extends State<HomePage> {
       Padding(padding: const EdgeInsets.all(18), child: Column(children: [
         const SizedBox(height: 28),
         Container(width: 170, height: 170, decoration: BoxDecoration(shape: BoxShape.circle,
-          border: Border.all(color: gold, width: 3), boxShadow: [BoxShadow(color: gold.withOpacity(.16), blurRadius: 28)]),
+          border: Border.all(color: gold, width: 3), boxShadow: [BoxShadow(color: gold.withValues(alpha: .16), blurRadius: 28)]),
           child: Center(child: Icon(app.connected ? Icons.shield : Icons.shield_outlined, size: 82, color: app.connected ? Colors.greenAccent : gold))),
         const SizedBox(height: 16),
         Text(app.connected ? 'متصل' : (app.connecting ? 'در حال اتصال...' : 'قطع'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
