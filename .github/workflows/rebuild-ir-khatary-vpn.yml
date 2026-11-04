@@ -45,7 +45,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf _flutter_scaffold
+          rm -rf vpn_king _flutter_scaffold
           flutter create --platforms=android --org com.irkhatary --project-name ir_khatary_vpn _flutter_scaffold
           cp -a _flutter_scaffold/. .
           rm -rf _flutter_scaffold
@@ -510,6 +510,22 @@ jobs:
           manifest.write_text(m)
           print(p.read_text())
           PY
+
+      - name: Replace default widget test
+        shell: bash
+        run: |
+          mkdir -p test
+          cat > test/widget_test.dart <<'DART'
+          import 'package:flutter_test/flutter_test.dart';
+          import 'package:ir_khatary_vpn/main.dart';
+
+          void main() {
+            testWidgets('IR Khatary VPN app renders', (tester) async {
+              await tester.pumpWidget(const IRKhataryApp());
+              expect(find.text('IR_Khatary VPN'), findsOneWidget);
+            });
+          }
+          DART
 
       - name: Resolve dependencies and analyze
         run: |
