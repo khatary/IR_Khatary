@@ -559,3 +559,11 @@ jobs:
           name: IR-Khatary-VPN-release
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+
+      - name: Publish direct APK download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          name: IR_Khatary VPN build ${{ github.run_number }}
+          files: build/app/outputs/flutter-apk/app-release.apk
+          generate_release_notes: false
