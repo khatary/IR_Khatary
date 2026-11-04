@@ -45,13 +45,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf vpn_king
-          flutter create --platforms=android --org com.irkhatary --project-name ir_khatary_vpn vpn_king
+          rm -rf _flutter_scaffold
+          flutter create --platforms=android --org com.irkhatary --project-name ir_khatary_vpn _flutter_scaffold
+          cp -a _flutter_scaffold/. .
+          rm -rf _flutter_scaffold
 
       - name: Write app dependencies
         shell: bash
         run: |
-          cat > vpn_king/pubspec.yaml <<'YAML'
+          cat > pubspec.yaml <<'YAML'
           name: ir_khatary_vpn
           description: IR_Khatary VPN - Xray based Android VPN client.
           publish_to: 'none'
@@ -77,7 +79,7 @@ jobs:
       - name: Write IR_Khatary VPN application
         shell: bash
         run: |
-          cat > vpn_king/lib/main.dart <<'DART'
+          cat > lib/main.dart <<'DART'
           import 'dart:convert';
           import 'package:file_picker/file_picker.dart';
           import 'package:flutter/material.dart';
@@ -484,8 +486,7 @@ jobs:
           DART
 
       - name: Set Android app identity and compile SDK
-        working-directory: vpn_king
-        shell: bash
+                shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -496,11 +497,11 @@ jobs:
                   continue
               s = p.read_text()
               if p.suffix == ".kts":
-                  s = re.sub(r'(?m)^\\s*compileSdk\\s*=.*$', '    compileSdk = 36', s)
-                  s = re.sub(r'(?m)^\\s*minSdk\\s*=.*$', '        minSdk = 23', s)
+                  s = re.sub(r'(?m)^\s*compileSdk\s*=.*, '    compileSdk = 36', s)
+                  s = re.sub(r'(?m)^\s*minSdk\s*=.*, '        minSdk = 23', s)
               else:
-                  s = re.sub(r'(?m)^\\s*compileSdkVersion\\s+.*$', '    compileSdkVersion 36', s)
-                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+                  s = re.sub(r'(?m)^\s*compileSdkVersion\s+.*, '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\s*minSdkVersion\s+.*, '        minSdkVersion 23', s)
               p.write_text(s)
           manifest = Path("android/app/src/main/AndroidManifest.xml")
           m = manifest.read_text()
@@ -510,8 +511,7 @@ jobs:
           grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
 
       - name: Resolve dependencies and analyze
-        working-directory: vpn_king
-        run: |
+                run: |
           flutter pub get
           dart analyze
 
@@ -521,7 +521,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A vpn_king
+          git add -A
           if [ -f README.md ]; then git add README.md; fi
           cat > README.md <<'EOF'
           # IR_Khatary VPN
@@ -537,12 +537,717 @@ jobs:
           fi
 
       - name: Build release APK
-        working-directory: vpn_king
-        run: flutter build apk --release
+                run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: IR-Khatary-VPN-release
-          path: vpn_king/build/app/outputs/flutter-apk/app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '    compileSdk = 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdk\\s*=.*$', '        minSdk = 23', s)
+              else:
+                  s = re.sub(r'(?m)^\\s*compileSdkVersion\\s+.*$', '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '        minSdk = 23', s)
+              else:
+                  s = re.sub(r'(?m)^\\s*compileSdkVersion\\s+.*$', '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '    compileSdk = 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdk\\s*=.*$', '        minSdk = 23', s)
+              else:
+                  s = re.sub(r'(?m)^\\s*compileSdkVersion\\s+.*$', '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '    compileSdk = 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdk\\s*=.*$', '        minSdk = 23', s)
+              else:
+                  s = re.sub(r'(?m)^\\s*compileSdkVersion\\s+.*$', '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '        minSdk = 23', s)
+              else:
+                  s = re.sub(r'(?m)^\\s*compileSdkVersion\\s+.*$', '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '    compileSdk = 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdk\\s*=.*$', '        minSdk = 23', s)
+              else:
+                  s = re.sub(r'(?m)^\\s*compileSdkVersion\\s+.*$', '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '    compileSdk = 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdk\\s*=.*$', '        minSdk = 23', s)
+              else:
+                  s = re.sub(r'(?m)^\\s*compileSdkVersion\\s+.*$', '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '        minSdk = 23', s)
+              else:
+                  s = re.sub(r'(?m)^\\s*compileSdkVersion\\s+.*$', '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '    compileSdk = 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdk\\s*=.*$', '        minSdk = 23', s)
+              else:
+                  s = re.sub(r'(?m)^\\s*compileSdkVersion\\s+.*$', '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '    compileSdk = 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdk\\s*=.*$', '        minSdk = 23', s)
+              else:
+                  s = re.sub(r'(?m)^\\s*compileSdkVersion\\s+.*$', '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '        minSdk = 23', s)
+              else:
+                  s = re.sub(r'(?m)^\\s*compileSdkVersion\\s+.*$', '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+, '    compileSdk = 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdk\\s*=.*$', '        minSdk = 23', s)
+              else:
+                  s = re.sub(r'(?m)^\\s*compileSdkVersion\\s+.*$', '    compileSdkVersion 36', s)
+                  s = re.sub(r'(?m)^\\s*minSdkVersion\\s+.*$', '        minSdkVersion 23', s)
+              p.write_text(s)
+          manifest = Path("android/app/src/main/AndroidManifest.xml")
+          m = manifest.read_text()
+          m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET"/>\\n    <application', 1)
+          manifest.write_text(m)
+          PY
+          grep -R -nE 'compileSdk(Version)?[ =]+36' android/app
+
+      - name: Resolve dependencies and analyze
+                run: |
+          flutter pub get
+          dart analyze
+
+      - name: Commit the new project to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if [ -f README.md ]; then git add README.md; fi
+          cat > README.md <<'EOF'
+          # IR_Khatary VPN
+          Fresh Flutter Android client using the Xray runtime through flutter_vless.
+          Supports VMess, VLESS, Trojan, Shadowsocks, SOCKS and Xray-compatible imports.
+          Import profiles from share links, subscription URLs, files, or clipboard.
+          A valid remote profile/service is required; the app does not fabricate free servers or fake connection status.
+          EOF
+          git add README.md
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebuild IR_Khatary VPN from scratch"
+            git push origin HEAD:main
+          fi
+
+      - name: Build release APK
+                run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: IR-Khatary-VPN-release
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
