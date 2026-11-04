@@ -206,8 +206,24 @@ class _HomePageState extends State<HomePage> {
             Expanded(child: OutlinedButton.icon(
               onPressed: () async {
                 final result = await FilePicker.platform.pickFiles(withData: true);
-                final bytes = result?.files.single.bytes;
-                if (bytes != null) controller.text = utf8.decode(bytes);
+                if (result == null || result.files.isEmpty) return;
+                final file = result.files.single;
+                final extension = (file.extension ?? '').toLowerCase();
+                const proprietary = {'ehi', 'sip', 'sksplus', 'lnk', 'tls'};
+                if (proprietary.contains(extension)) {
+                  _toast('این فایل .$extension قالب اختصاصی و رمزگذاری‌شده دارد و مستقیماً در نسخه Xray قابل خواندن نیست. از برنامه سازنده، خروجی VLESS/VMess/Trojan یا لینک اشتراک بگیر.');
+                  return;
+                }
+                final bytes = file.bytes;
+                if (bytes == null) {
+                  _toast('خواندن فایل ممکن نشد؛ دوباره انتخابش کن.');
+                  return;
+                }
+                try {
+                  controller.text = utf8.decode(bytes);
+                } on FormatException {
+                  _toast('این فایل متن استاندارد نیست یا رمزگذاری شده است. فایل JSON/YAML یا لینک متنی Xray انتخاب کن.');
+                }
               }, icon: const Icon(Icons.folder_open), label: const Text('انتخاب فایل')),
             ),
           ]),
