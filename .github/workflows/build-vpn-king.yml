@@ -21,9 +21,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract the uploaded project source
-        run: unzip -o VPN_KING_fixed_source.zip -d ..
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
