@@ -49,6 +49,8 @@ jobs:
               q = Path(name)
               if q.exists():
                   t = q.read_text()
+                  t = t.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 36')
+                  t = t.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 36')
                   t = t.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
                   t = t.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
                   q.write_text(t)
