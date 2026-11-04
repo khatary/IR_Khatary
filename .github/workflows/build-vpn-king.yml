@@ -39,27 +39,31 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
+
           manifest = Path('android/app/src/main/AndroidManifest.xml')
           s = manifest.read_text()
           if 'android.permission.INTERNET' not in s:
               s = s.replace('<application', '<uses-permission android:name="android.permission.INTERNET" />\\n    <application', 1)
-          s = re.sub(r'<application\\b', '<application android:extractNativeLibs="true"', s, count=1)
-          s = re.sub(r'android:label="[^"]*"', 'android:label="VPN KING"', s, count=1)
+          s = s.replace('<application', '<application android:extractNativeLibs="true"', 1)
+          s = s.replace('android:label="vpn_king"', 'android:label="VPN KING"')
           manifest.write_text(s)
 
-          for name in ('android/app/build.gradle', 'android/app/build.gradle.kts'):
-              p = Path(name)
-              if not p.exists():
-                  continue
-              t = p.read_text()
-              t = re.sub(r'compileSdk\\s*=\\s*(?:flutter\\.compileSdkVersion|\\d+)', 'compileSdk = 36', t)
-              t = re.sub(r'compileSdkVersion\\s+(?:flutter\\.compileSdkVersion|\\d+)', 'compileSdkVersion 36', t)
+          gradle = Path('android/app/build.gradle.kts')
+          if gradle.exists():
+              t = gradle.read_text()
+              t = t.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 36')
               t = t.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
+              if 'compileSdk = 36' not in t:
+                  raise SystemExit('compileSdk replacement failed in build.gradle.kts')
+              gradle.write_text(t)
+          else:
+              gradle = Path('android/app/build.gradle')
+              t = gradle.read_text()
+              t = t.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 36')
               t = t.replace('minSdkVersion flutter.minSdkVersion', 'minSdkVersion 24')
-              if 'compileSdk = 36' not in t and 'compileSdkVersion 36' not in t:
-                  raise SystemExit(f'Could not set compileSdk 36 in {name}')
-              p.write_text(t)
+              if 'compileSdkVersion 36' not in t:
+                  raise SystemExit('compileSdk replacement failed in build.gradle')
+              gradle.write_text(t)
           PY
 
       - name: Resolve packages
