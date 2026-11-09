@@ -166,7 +166,10 @@ class _HomePageState extends State<HomePage> {
       final decoded = jsonDecode(raw) as List<dynamic>;
       if (!mounted) return;
       setState(() {
-        _profiles.addAll(decoded.map((e) => VpnProfile.fromJson(Map<String, dynamic>.from(e as Map))));
+        const supported = {'WIREGUARD', 'V2RAY', 'VLESS', 'VMESS', 'TROJAN', 'SS', 'XRAY'};
+        _profiles.addAll(decoded
+          .map((e) => VpnProfile.fromJson(Map<String, dynamic>.from(e as Map)))
+          .where((profile) => supported.contains(profile.protocol.toUpperCase())));
         final selected = prefs.getInt('selected_profile') ?? -1;
         _selected = selected >= 0 && selected < _profiles.length ? selected : (_profiles.isEmpty ? -1 : 0);
       });
@@ -188,7 +191,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   bool _containsUnsupportedProxyScheme(String input) {
-    final schemes = RegExp(r'(?i)([a-z][a-z0-9+.-]*)://');
+    final schemes = RegExp(r'([a-z][a-z0-9+.-]*)://', caseSensitive: false);
     const allowed = {'vless', 'vmess', 'trojan', 'ss', 'https', 'http'};
     return schemes.allMatches(input).any((m) => !allowed.contains(m.group(1)!.toLowerCase()));
   }
@@ -229,6 +232,9 @@ class _HomePageState extends State<HomePage> {
       if (parsed.isEmpty && _looksLikeBase64Subscription(payload)) {
         final compact = payload.replaceAll(RegExp(r'\s'), '').replaceAll('-', '+').replaceAll('_', '/');
         payload = utf8.decode(base64.decode(base64.normalize(compact)));
+        if (_containsUnsupportedProxyScheme(payload)) {
+          throw const FormatException('اشتراک شامل پروتکل خارج از محدوده این برنامه است. فقط WireGuard و پروفایل‌های V2Ray را وارد کن.');
+        }
         parsed = FlutterVless.parseMany(payload);
       }
       if (parsed.isEmpty) throw FormatException('کانفیگ V2Ray شناسایی نشد؛ لینک یا اشتراک معتبر VLESS، VMess، Trojan یا Shadowsocks وارد کن. ${parseError ?? ''}');
@@ -474,7 +480,7 @@ class _HomePageState extends State<HomePage> {
             );
           }),
           const SizedBox(height: 6),
-          OutlinedButton.icon(onPressed: _selected >= 0 && _ready ? _testDelay : null,
+          OutlinedButton.icon(onPressed: _selected >= 0 && _ready && _profiles[_selected].protocol != 'WIREGUARD' ? _testDelay : null,
             icon: const Icon(Icons.speed), label: const Text('بررسی تأخیر سرور')),
           const SizedBox(height: 18),
           const Center(child: Text('IR_Khatary • اتصال واقعی، بدون وضعیت ساختگی', style: TextStyle(color: Colors.white30, fontSize: 10))),
