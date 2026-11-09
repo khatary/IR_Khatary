@@ -181,14 +181,20 @@ class _HomePageState extends State<HomePage> {
 
   String _protocol(String input) {
     final lower = input.toLowerCase();
-    for (final p in ['vless://','vmess://','trojan://','ss://','socks://','hysteria2://','hy2://']) {
-      if (lower.startsWith(p)) return p.replaceAll('://', '').toUpperCase();
+    for (final p in ['vless://', 'vmess://', 'trojan://', 'ss://']) {
+      if (lower.startsWith(p)) return 'V2RAY';
     }
-    return 'XRAY';
+    return 'V2RAY';
+  }
+
+  bool _containsUnsupportedProxyScheme(String input) {
+    final schemes = RegExp(r'(?i)([a-z][a-z0-9+.-]*)://');
+    const allowed = {'vless', 'vmess', 'trojan', 'ss', 'https', 'http'};
+    return schemes.allMatches(input).any((m) => !allowed.contains(m.group(1)!.toLowerCase()));
   }
 
   Future<void> _importText(String input) async {
-    final raw = input.trim();
+    final raw = input.replaceFirst('\uFEFF', '').trim();
     if (raw.isEmpty) return;
     try {
       String payload = raw;
@@ -214,6 +220,9 @@ class _HomePageState extends State<HomePage> {
           payload = response.body;
         }
       }
+      if (_containsUnsupportedProxyScheme(payload)) {
+        throw const FormatException('فقط کانفیگ‌های WireGuard و لینک/اشتراک V2Ray شامل VLESS، VMess، Trojan و Shadowsocks پشتیبانی می‌شوند.');
+      }
       List<FlutterVlessURL> parsed = <FlutterVlessURL>[];
       Object? parseError;
       try { parsed = FlutterVless.parseMany(payload); } catch (e) { parseError = e; }
@@ -222,7 +231,7 @@ class _HomePageState extends State<HomePage> {
         payload = utf8.decode(base64.decode(base64.normalize(compact)));
         parsed = FlutterVless.parseMany(payload);
       }
-      if (parsed.isEmpty) throw FormatException('کانفیگ V2Ray شناسایی نشد؛ لینک VLESS/VMess یا اشتراک معتبر وارد کن. ${parseError ?? ''}');
+      if (parsed.isEmpty) throw FormatException('کانفیگ V2Ray شناسایی نشد؛ لینک یا اشتراک معتبر VLESS، VMess، Trojan یا Shadowsocks وارد کن. ${parseError ?? ''}');
       int added = 0;
       for (final item in parsed) {
         final config = item.getFullConfiguration();
@@ -244,10 +253,10 @@ class _HomePageState extends State<HomePage> {
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 24),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Text('افزودن کانفیگ یا اشتراک', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+          const Text('افزودن کانفیگ WireGuard یا V2Ray', style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           TextField(controller: controller, maxLines: 5, minLines: 3,
-            decoration: const InputDecoration(hintText: 'لینک VLESS / VMess یا فایل WireGuard (.conf) / اشتراک')),
+            decoration: const InputDecoration(hintText: 'لینک VLESS / VMess / Trojan / Shadowsocks، اشتراک V2Ray یا فایل WireGuard (.conf)')),
           const SizedBox(height: 12),
           Row(children: [
             Expanded(child: OutlinedButton.icon(
@@ -264,7 +273,7 @@ class _HomePageState extends State<HomePage> {
                 final extension = (file.extension ?? '').toLowerCase();
                 const proprietary = {'ehi', 'sip', 'sksplus', 'lnk', 'tls'};
                 if (proprietary.contains(extension)) {
-                  _toast('این فایل .$extension قالب اختصاصی و رمزگذاری‌شده دارد و مستقیماً در نسخه Xray قابل خواندن نیست. از برنامه سازنده، خروجی VLESS/VMess/Trojan یا لینک اشتراک بگیر.');
+                  _toast('این قالب جزو فرمت‌های پشتیبانی‌شده نیست. فقط فایل WireGuard با پسوند .conf یا خروجی متنی/اشتراک V2Ray وارد کن.');
                   return;
                 }
                 final bytes = file.bytes;
@@ -275,7 +284,7 @@ class _HomePageState extends State<HomePage> {
                 try {
                   controller.text = utf8.decode(bytes);
                 } on FormatException {
-                  _toast('این فایل متن استاندارد نیست یا رمزگذاری شده است. فایل JSON/YAML یا لینک متنی Xray انتخاب کن.');
+                  _toast('این فایل متن قابل‌خواندن نیست. فایل WireGuard .conf یا لینک/اشتراک متنی V2Ray انتخاب کن.');
                 }
               }, icon: const Icon(Icons.folder_open), label: const Text('انتخاب فایل')),
             ),
@@ -310,7 +319,7 @@ class _HomePageState extends State<HomePage> {
       finally { if (mounted) setState(() => _busy = false); }
       return;
     }
-    if (!_ready) { _toast(_engineError ?? 'هسته Xray در حال آماده‌سازی است'); return; }
+    if (!_ready) { _toast(_engineError ?? 'هسته V2Ray/Xray در حال آماده‌سازی است'); return; }
     setState(() => _busy = true);
     try {
       if (!await _engine.requestPermission()) { _toast('مجوز VPN داده نشد'); return; }
@@ -363,7 +372,7 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('IR_Khatary VPN', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 0.4)),
-          Text('اتصال امن با هسته Xray', style: TextStyle(fontSize: 11, color: Colors.white54)),
+          Text('WireGuard • V2Ray', style: TextStyle(fontSize: 11, color: Colors.white54)),
         ]),
         actions: [
           IconButton(tooltip: 'راهنما', onPressed: () => showAboutDialog(
@@ -410,7 +419,7 @@ class _HomePageState extends State<HomePage> {
               Text(selected?.name ?? 'هیچ کانفیگی انتخاب نشده', maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
-              Text(selected?.protocol == 'WIREGUARD' ? 'WireGuard • تونل مستقل' : (_ready ? 'Xray • $_core' : (_engineError == null ? 'در حال راه‌اندازی هسته…' : 'هسته آماده نشد')),
+              Text(selected?.protocol == 'WIREGUARD' ? 'WireGuard • تونل مستقل' : (_ready ? 'V2Ray / Xray • $_core' : (_engineError == null ? 'در حال راه‌اندازی هسته…' : 'هسته آماده نشد')),
                 style: const TextStyle(color: Colors.white54, fontSize: 11)),
               if (_engineError != null) Padding(padding: const EdgeInsets.only(top: 6),
                 child: Text(_engineError!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.redAccent, fontSize: 10))),
@@ -431,7 +440,7 @@ class _HomePageState extends State<HomePage> {
             Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: panel, borderRadius: BorderRadius.circular(18)),
               child: const Column(children: [Icon(Icons.cloud_download_outlined, color: gold, size: 34), SizedBox(height: 8),
                 Text('هنوز کانفیگی اضافه نشده'), SizedBox(height: 4),
-                Text('از لینک، اشتراک، فایل یا کلیپ‌بورد وارد کن', style: TextStyle(color: Colors.white54, fontSize: 12))]))
+                Text('فایل WireGuard یا لینک و اشتراک V2Ray وارد کن', style: TextStyle(color: Colors.white54, fontSize: 12))]))
           else ..._profiles.asMap().entries.map((entry) {
             final i = entry.key; final p = entry.value; final active = i == _selected;
             return Container(
