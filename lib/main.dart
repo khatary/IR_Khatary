@@ -235,7 +235,7 @@ class _HomePageState extends State<HomePage> {
       int added = 0;
       for (final item in parsed) {
         final config = item.getFullConfiguration();
-        final name = (item.remark?.trim().isNotEmpty ?? false) ? item.remark!.trim() : '${_protocol(payload)} - ${_profiles.length + 1}';
+        final name = item.remark.trim().isNotEmpty ? item.remark.trim() : '${_protocol(payload)} - ${_profiles.length + 1}';
         final profile = VpnProfile(name: name, config: config, protocol: _protocol(payload));
         if (!_profiles.any((p) => p.config == profile.config)) { _profiles.add(profile); added++; }
       }
@@ -273,7 +273,7 @@ class _HomePageState extends State<HomePage> {
                 final extension = (file.extension ?? '').toLowerCase();
                 const proprietary = {'ehi', 'sip', 'sksplus', 'lnk', 'tls'};
                 if (proprietary.contains(extension)) {
-                  _toast('این فایل .$extension قالب اختصاصی و رمزگذاری‌شده دارد و مستقیماً در نسخه Xray قابل خواندن نیست. از برنامه سازنده، خروجی VLESS/VMess/Trojan یا لینک اشتراک بگیر.');
+                  _toast('این فایل با فرمت پشتیبانی‌شده نیست. فقط فایل WireGuard با پسوند .conf یا کانفیگ متنی V2Ray وارد کن.');
                   return;
                 }
                 final bytes = file.bytes;
@@ -284,7 +284,7 @@ class _HomePageState extends State<HomePage> {
                 try {
                   controller.text = utf8.decode(bytes);
                 } on FormatException {
-                  _toast('این فایل متن استاندارد نیست یا رمزگذاری شده است. فایل JSON/YAML یا لینک متنی Xray انتخاب کن.');
+                  _toast('این فایل متن قابل‌خواندن نیست. فایل WireGuard .conf یا کانفیگ متنی V2Ray انتخاب کن.');
                 }
               }, icon: const Icon(Icons.folder_open), label: const Text('انتخاب فایل')),
             ),
@@ -389,13 +389,13 @@ class _HomePageState extends State<HomePage> {
             decoration: BoxDecoration(
               gradient: const LinearGradient(colors: [Color(0xFF211C12), Color(0xFF121319)], begin: Alignment.topRight, end: Alignment.bottomLeft),
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: gold.withOpacity(.45)),
+              border: Border.all(color: gold.withValues(alpha: .45)),
             ),
             child: Column(children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 const Text('وضعیت اتصال', style: TextStyle(color: Colors.white70)),
                 Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(color: statusColor.withOpacity(.12), borderRadius: BorderRadius.circular(30)),
+                  decoration: BoxDecoration(color: statusColor.withValues(alpha: .12), borderRadius: BorderRadius.circular(30)),
                   child: Row(children: [Container(width: 7, height: 7, decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle)),
                     const SizedBox(width: 6), Text(statusText, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold))])),
               ]),
@@ -407,7 +407,7 @@ class _HomePageState extends State<HomePage> {
                   decoration: BoxDecoration(shape: BoxShape.circle,
                     gradient: const RadialGradient(colors: [Color(0xFF3A301B), Color(0xFF17130D), Color(0xFF101116)]),
                     border: Border.all(color: _connected ? const Color(0xFF45D483) : gold, width: 2),
-                    boxShadow: [BoxShadow(color: (_connected ? const Color(0xFF45D483) : gold).withOpacity(.2), blurRadius: 28, spreadRadius: 4)]),
+                    boxShadow: [BoxShadow(color: (_connected ? const Color(0xFF45D483) : gold).withValues(alpha: .2), blurRadius: 28, spreadRadius: 4)]),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Icon(_connected ? Icons.shield : Icons.power_settings_new, size: 42, color: _connected ? const Color(0xFF45D483) : gold),
                     const SizedBox(height: 8),
@@ -446,7 +446,7 @@ class _HomePageState extends State<HomePage> {
             return Container(
               margin: const EdgeInsets.only(bottom: 9),
               decoration: BoxDecoration(color: active ? const Color(0xFF272318) : panel,
-                borderRadius: BorderRadius.circular(16), border: Border.all(color: active ? gold.withOpacity(.7) : Colors.white10)),
+                borderRadius: BorderRadius.circular(16), border: Border.all(color: active ? gold.withValues(alpha: .7) : Colors.white10)),
               child: ListTile(
                 onTap: () async {
                   if (_connected) { _toast('ابتدا اتصال را قطع کن'); return; }
