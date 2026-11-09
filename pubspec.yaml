@@ -1,5 +1,5 @@
 name: ir_khatary_vpn
-description: IR_Khatary VPN - Xray based Android VPN client.
+description: IR_Khatary VPN - WireGuard and V2Ray Android VPN client.
 publish_to: 'none'
 version: 1.0.0+1
 environment:
