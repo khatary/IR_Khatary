@@ -20,8 +20,11 @@ void _validateWireGuardConfig(String source) {
     if (line.startsWith('[') && line.endsWith(']')) {
       current = line.substring(1, line.length - 1).trim().toLowerCase();
       sections.putIfAbsent(current, () => <Map<String, String>>[]);
-      if (current == 'peer') sections[current]!.add(<String, String>{});
-      else if (sections[current]!.isEmpty) sections[current]!.add(<String, String>{});
+      if (current == 'peer') {
+        sections[current]!.add(<String, String>{});
+      } else if (sections[current]!.isEmpty) {
+        sections[current]!.add(<String, String>{});
+      }
       continue;
     }
     if (current == null || !line.contains('=')) continue;
