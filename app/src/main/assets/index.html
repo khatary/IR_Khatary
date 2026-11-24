@@ -176,7 +176,7 @@ async function perm(){
 }
 async function attach(){
   if(listeners)return true;
-  if(NB&&nb("hasGyro")){window.onGyroData=(x,y,z)=>onSample(+x,+y,+z);listeners=1;return true}
+  if(NB&&nb("hasGyro")){window.onGyroData=(x,y,z)=>onSample(+x,+y,+z);const started=nb("startLive");if(started===false)return false;listeners=1;return true}
   if(!hasWebGyro)return false;
   try{await perm()}catch(e){toast("دسترسی به سنسور رد شد");return false}
   if("Gyroscope"in window){
@@ -187,7 +187,7 @@ async function attach(){
 function addMotion(){window.addEventListener("devicemotion",motionH);listeners=1}
 function detach(){
   if(gsensor){try{gsensor.stop()}catch(e){}gsensor=null}
-  window.removeEventListener("devicemotion",motionH);listeners=0;
+  window.removeEventListener("devicemotion",motionH);if(NB)nb("stopLive");listeners=0;
 }
 function live(on){
   liveOn=on;$("liveBtn").textContent=on?"توقف نمایش زنده":"شروع نمایش زنده";
