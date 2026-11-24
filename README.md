@@ -1,10 +1,11 @@
-# IR_Khatary VPN
+# PUBG GYRO — Android project
 
-Android VPN app dedicated to two connection types:
+Native Kotlin Android starter for the PUBG GYRO sensor utility.
 
-- **WireGuard:** import a standard WireGuard `.conf` profile and connect through the native WireGuard tunnel.
-- **V2Ray / Xray:** import supported VLESS, VMess, Trojan, and Shadowsocks links or subscriptions.
+## Open
+Open this repository in Android Studio, allow Gradle sync, then use Build > Build APK(s).
 
-The app does not include OpenVPN, SOCKS-only profiles, or proprietary tunnel-app formats. A valid server profile is required; the app does not create free servers or display fake connection status.
+## Current scope
+Includes a 3-second splash screen, dark neon gamer-style home screen, sensor presence detection, starter Sensor Test and Gyro Emulator pages, settings placeholder, and PUBG launch button.
 
-**Minimum Android version:** Android 8.0 (API 26).
+A normal Android app cannot create a virtual system gyroscope visible to PUBG Mobile on a device that lacks gyroscope hardware. The emulator page demonstrates motion only inside this app. Live sensor graphs, calibration, and fuller emulator interactions are future development work.
