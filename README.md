@@ -1,11 +1,19 @@
-# PUBG GYRO — Android project
+# PUBG GYRO
 
-Native Kotlin Android starter for the PUBG GYRO sensor utility.
+Native Android sensor utility (Kotlin) with a 3-second splash screen and dark neon gaming interface.
 
-## Open
-Open this repository in Android Studio, allow Gradle sync, then use Build > Build APK(s).
+## Features in this build
+- Hardware gyroscope and accelerometer detection
+- Live X/Y/Z sensor readout
+- In-app motion preview with sensitivity, smoothing, and calibration
+- PUBG Mobile launcher button
+- Settings/info screen
+- GitHub Actions workflow builds a debug APK and uploads it as an artifact
 
-## Current scope
-Includes a 3-second splash screen, dark neon gamer-style home screen, sensor presence detection, starter Sensor Test and Gyro Emulator pages, settings placeholder, and PUBG launch button.
+## Build
+Open in Android Studio and sync Gradle, then Build > Build APK(s).
 
-A normal Android app cannot create a virtual system gyroscope visible to PUBG Mobile on a device that lacks gyroscope hardware. The emulator page demonstrates motion only inside this app. Live sensor graphs, calibration, and fuller emulator interactions are future development work.
+GitHub Actions also builds on every push to main. Download the APK from the workflow run's Artifacts section.
+
+## Limitation
+A regular Android app cannot create a virtual system gyroscope that PUBG Mobile receives on a device without gyro hardware. Emulator movement works only inside PUBG GYRO; it does not modify PUBG files or inject sensor data.
