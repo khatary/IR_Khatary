@@ -6,7 +6,7 @@
         <package android:name="com.pubg.imobile"/>
         <package android:name="com.tencent.iglite"/>
     </queries>
-    <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="PUBG GYRO" android:allowBackup="false" android:supportsRtl="true">
+    <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="PUBG GYRO" android:icon="@drawable/app_icon" android:allowBackup="false" android:supportsRtl="true">
         <provider android:name="rikka.shizuku.ShizukuProvider" android:authorities="${applicationId}.shizuku" android:enabled="true" android:exported="true" android:permission="rikka.shizuku.permission.API_V23">
             <meta-data android:name="rikka.shizuku.api" android:value="13"/>
         </provider>
