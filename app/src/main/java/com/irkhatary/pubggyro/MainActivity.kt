@@ -21,6 +21,7 @@ class MainActivity : Activity(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var gyro: Sensor? = null
     private var testing = false
+    private var liveActive = false
     private var samples = 0
     private var firstNs = 0L
     private var lastNs = 0L
@@ -62,6 +63,35 @@ class MainActivity : Activity(), SensorEventListener {
         @JavascriptInterface fun hasGyro(): Boolean = gyro != null
         @JavascriptInterface fun getLanguage(): String = if (prefs.getBoolean("fa", true)) "fa" else "en"
         @JavascriptInterface fun setLanguage(value: String) { prefs.edit().putBoolean("fa", value == "fa").apply() }
+        @JavascriptInterface fun startLive(): Boolean {
+            val s = gyro ?: return false
+            runOnUiThread {
+                liveActive = true
+                sensorManager.registerListener(this@MainActivity, s, SensorManager.SENSOR_DELAY_GAME)
+                js("window.onGyroStatus && window.onGyroStatus(true)")
+            }
+            return true
+        }
+        @JavascriptInterface fun stopLive() {
+            runOnUiThread {
+                liveActive = false
+                if (!testing) sensorManager.unregisterListener(this@MainActivity)
+            }
+        }
+        @JavascriptInterface fun isShizukuRunning(): Boolean = try { Shizuku.pingBinder() } catch (_: Exception) { false }
+        @JavascriptInterface fun hasShizukuPermission(): Boolean = try {
+            Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED
+        } catch (_: Exception) { false }
+        @JavascriptInterface fun getShizukuStatus(): String = if (isShizukuRunning()) {
+            if (hasShizukuPermission()) "running granted" else "running permission denied"
+        } else "not running"
+        @JavascriptInterface fun openShizuku() {
+            runOnUiThread {
+                val i = packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")
+                if (i != null) startActivity(i)
+                else Toast.makeText(this@MainActivity, "Shizuku not installed", Toast.LENGTH_LONG).show()
+            }
+        }
         @JavascriptInterface fun startTest() { runOnUiThread { startSensorTest() } }
         @JavascriptInterface fun stopTest() { runOnUiThread { stopSensorTest() } }
         @JavascriptInterface fun launchGame() { runOnUiThread { launchPubg() } }
@@ -104,7 +134,7 @@ class MainActivity : Activity(), SensorEventListener {
     }
 
     private fun stopSensorTest() {
-        if (::sensorManager.isInitialized) sensorManager.unregisterListener(this)
+        if (::sensorManager.isInitialized && !liveActive) sensorManager.unregisterListener(this)
         testing = false
         handler.removeCallbacksAndMessages(null)
     }
@@ -131,7 +161,7 @@ class MainActivity : Activity(), SensorEventListener {
         Toast.makeText(this, if (prefs.getBoolean("fa", true)) "پابجی موبایل پیدا نشد" else "PUBG Mobile not found", Toast.LENGTH_LONG).show()
     }
 
-    override fun onPause() { super.onPause(); stopSensorTest() }
+    override fun onPause() { super.onPause(); stopSensorTest(); liveActive = false; sensorManager.unregisterListener(this) }
 
     override fun onDestroy() {
         super.onDestroy()
