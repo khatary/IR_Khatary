@@ -1,363 +1,346 @@
 package com.irkhatary.pubggyro
 
 import android.app.Activity
-import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.content.Context
-import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.graphics.Color
 import android.graphics.Typeface
-import android.view.Gravity
-import android.view.View
-import android.widget.*
 import android.graphics.drawable.GradientDrawable
-import kotlin.math.atan2
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.Gravity
+import android.widget.*
 import kotlin.math.roundToInt
+import rikka.shizuku.Shizuku
 
 class MainActivity : Activity(), SensorEventListener {
     private val bg = Color.rgb(6, 9, 19)
     private val cyan = Color.rgb(0, 229, 255)
-    private val purple = Color.rgb(143, 72, 255)
-    private lateinit var sensorManager: SensorManager
+    private val green = Color.rgb(76, 255, 145)
+    private lateinit var sm: SensorManager
     private var gyro: Sensor? = null
     private var accel: Sensor? = null
-    private var activeSensor: Sensor? = null
-    private var liveX = 0f
-    private var liveY = 0f
-    private var liveZ = 0f
-    private var baseX = 0f
-    private var baseY = 0f
-    private var sensitivity = 1.0f
-    private var smooth = 0.35f
-    private var outputX = 0f
-    private var outputY = 0f
-    private var sensorReadout: TextView? = null
-    private var reticle: TextView? = null
-    private var sensorScreen = false
-    private var emulatorScreen = false
-    private var gyroStatusView: TextView? = null
-    private var gyroVerified = false
+    private var logView: TextView? = null
+    private var logScroll: ScrollView? = null
+    private var logText = StringBuilder()
+    private var liveText: TextView? = null
+    private var events = 0
+    private var firstNs = 0L
+    private var lastNs = 0L
+    private var maxGap = 0f
+    private var repairing = false
+    private val prefs by lazy { getSharedPreferences("gyro_settings", Context.MODE_PRIVATE) }
+    private val fa get() = prefs.getBoolean("fa", true)
+
+    private val permissionListener = Shizuku.OnRequestPermissionResultListener { code, result ->
+        if (code == REQUEST) {
+            if (result == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                log(t("granted"))
+                systemReport()
+            } else log(t("denied"))
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = bg
         window.navigationBarColor = bg
-        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        gyro = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-        accel = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        showSplash()
+        sm = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        gyro = sm.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        accel = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        Shizuku.addRequestPermissionResultListener(permissionListener)
+        home()
     }
 
-    private fun panel(stroke: Int = Color.rgb(43, 57, 94)) = GradientDrawable(
-        GradientDrawable.Orientation.TL_BR,
-        intArrayOf(Color.rgb(23, 30, 52), Color.rgb(11, 15, 29))
-    ).apply { cornerRadius = dp(22).toFloat(); setStroke(dp(1), stroke) }
+    private fun t(key: String): String {
+        val faMap = mapOf(
+            "subtitle" to "تشخیص و عیب‌یابی سنسور ژیروسکوپ",
+            "found" to "ژیروسکوپ سخت‌افزاری موجود است",
+            "absent" to "ژیروسکوپ سخت‌افزاری پیدا نشد",
+            "repair" to "تعمیر و عیب‌یابی ژیرو",
+            "sensor" to "تست زنده سنسور",
+            "settings" to "تنظیمات / Settings",
+            "launch" to "اجرای PUBG Mobile",
+            "start" to "شروع عیب‌یابی و تلاش برای اصلاح",
+            "shizuku" to "بررسی / دریافت مجوز Shizuku",
+            "back" to "بازگشت",
+            "language" to "زبان / Language",
+            "fa" to "فارسی",
+            "en" to "English",
+            "note" to "برنامه سنسور را دوباره ثبت و تست می‌کند. تعمیر سخت‌افزار یا درایور همه گوشی‌ها از طریق اپ ممکن نیست.",
+            "terminal" to "گزارش عملیات",
+            "ready" to "آماده اجرا...",
+            "begin" to "شروع عیب‌یابی...",
+            "checking" to "بررسی وجود ژیروسکوپ...",
+            "missing" to "ژیرو وجود ندارد؛ تعمیر نرم‌افزاری ممکن نیست.",
+            "present" to "ژیرو پیدا شد.",
+            "reregister" to "ثبت مجدد سنسور برای تلاش جهت بازیابی...",
+            "sampling" to "تست داده سنسور به مدت 4 ثانیه...",
+            "samples" to "نمونه دریافت شد؛ نرخ تقریبی",
+            "gap" to "بیشترین فاصله نمونه‌ها",
+            "nodata" to "داده‌ای دریافت نشد.",
+            "system" to "خواندن گزارش سرویس سنسور (فقط خواندنی)...",
+            "sysdone" to "گزارش سیستم دریافت شد.",
+            "sysfail" to "خطا در گزارش سیستم:",
+            "need" to "در حال درخواست مجوز از Shizuku...",
+            "notrunning" to "Shizuku نصب یا فعال نیست. فقط تست سنسور انجام شد.",
+            "granted" to "مجوز Shizuku داده شد.",
+            "denied" to "مجوز Shizuku رد شد؛ دستور سیستمی اجرا نشد.",
+            "finish" to "پایان بررسی؛ ژیرو را دوباره در پابجی آزمایش کنید.",
+            "cal" to "کالیبراسیون داخل این برنامه فقط نقطه مرجع پیش‌نمایش است، نه کالیبراسیون سخت‌افزار.",
+            "limitations" to "برنامه نمی‌تواند ژیرو مجازی به پابجی تزریق کند یا خرابی فیزیکی را تضمینی تعمیر کند.",
+            "data" to "داده زنده ژیرو",
+            "nodata2" to "هنوز داده‌ای دریافت نشده است."
+        )
+        val enMap = mapOf(
+            "subtitle" to "Gyroscope sensor diagnostics",
+            "found" to "Hardware gyroscope detected",
+            "absent" to "No hardware gyroscope found",
+            "repair" to "Gyro repair & diagnostics",
+            "sensor" to "Live sensor test",
+            "settings" to "Settings",
+            "launch" to "Launch PUBG Mobile",
+            "start" to "Start diagnosis & recovery attempt",
+            "shizuku" to "Check / authorize Shizuku",
+            "back" to "Back",
+            "language" to "Language / زبان",
+            "fa" to "فارسی",
+            "en" to "English",
+            "note" to "The app re-registers and tests the sensor. An app cannot repair hardware or drivers on every phone.",
+            "terminal" to "Operation log",
+            "ready" to "Ready...",
+            "begin" to "Starting diagnostics...",
+            "checking" to "Checking for gyroscope...",
+            "missing" to "No gyro found; software repair is not possible.",
+            "present" to "Gyroscope found.",
+            "reregister" to "Re-registering sensor to attempt recovery...",
+            "sampling" to "Sampling sensor for 4 seconds...",
+            "samples" to "Samples received; approximate rate",
+            "gap" to "Largest sample interval",
+            "nodata" to "No sensor data received.",
+            "system" to "Reading sensor service report (read-only)...",
+            "sysdone" to "System report received.",
+            "sysfail" to "System report error:",
+            "need" to "Requesting Shizuku permission...",
+            "notrunning" to "Shizuku is not installed or running. Sensor test only.",
+            "granted" to "Shizuku permission granted.",
+            "denied" to "Shizuku permission denied; no system command was run.",
+            "finish" to "Done; test gyro again in PUBG.",
+            "cal" to "Calibration in this app sets only the preview reference, not hardware calibration.",
+            "limitations" to "The app cannot inject a virtual gyro into PUBG or guarantee repair of physical faults.",
+            "data" to "Live gyro data",
+            "nodata2" to "No sensor data received yet."
+        )
+        return (if (fa) faMap else enMap)[key] ?: key
+    }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).roundToInt()
+    private fun card(stroke: Int = Color.rgb(43, 57, 94)) = GradientDrawable(
+        GradientDrawable.Orientation.TL_BR, intArrayOf(Color.rgb(23, 30, 52), Color.rgb(11, 15, 29))
+    ).apply { cornerRadius = dp(18).toFloat(); setStroke(dp(1), stroke) }
 
-    private fun showSplash() {
-        val splash = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
-            setBackgroundColor(bg); setPadding(dp(28), dp(28), dp(28), dp(28))
-        }
-        splash.addView(TextView(this).apply {
-            text = "◈"; textSize = 76f; setTextColor(cyan); gravity = Gravity.CENTER
-            typeface = Typeface.DEFAULT_BOLD
-        })
-        splash.addView(TextView(this).apply {
-            text = "PUBG GYRO"; textSize = 31f; setTextColor(Color.WHITE)
-            typeface = Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER; letterSpacing = .08f
-        })
-        splash.addView(TextView(this).apply {
-            text = "MOTION LAB  •  SENSOR CONTROL"; textSize = 11f
-            setTextColor(cyan); gravity = Gravity.CENTER; letterSpacing = .16f
-        })
-        splash.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-            isIndeterminate = true
-        }, LinearLayout.LayoutParams(-1, dp(4)).apply { setMargins(dp(30), dp(36), dp(30), 0) })
-        setContentView(splash)
-        Handler(Looper.getMainLooper()).postDelayed({ showHome() }, 3000L)
-    }
-
-    private fun showHome() {
-        stopSensor()
-        sensorScreen = false; emulatorScreen = false
-        val scroll = ScrollView(this).apply { setBackgroundColor(bg) }
-        val column = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(18), dp(20), dp(18))
-        }
-        column.addView(TextView(this).apply {
-            text = "PUBG GYRO"; textSize = 27f; setTextColor(Color.WHITE)
-            typeface = Typeface.DEFAULT_BOLD; letterSpacing = .03f
-        })
-        column.addView(TextView(this).apply {
-            text = "MOTION SYSTEM  /  VERSION 1.0"; textSize = 10f
-            setTextColor(cyan); letterSpacing = .12f
-        })
-        val hasGyro = gyro != null
-        val status = cardText(
-            if (hasGyro) "●  ژیروسکوپ واقعی در گوشی پیدا شد" else "●  ژیروسکوپ واقعی پیدا نشد",
-            if (hasGyro) cyan else Color.rgb(255, 174, 77), 13f
-        )
-        gyroStatusView = status
-        column.addView(status, marginParams(bottom = 14, top = 20))
-        column.addView(cardText(
-            "DEVICE SCAN\n\nGyroscope: ${if (hasGyro) "Available" else "Not detected"}\nAccelerometer: ${if (accel != null) "Available" else "Not detected"}\n\n${if (hasGyro) "Real gyro readings can be tested." else "Motion estimate uses the accelerometer and works only inside this app."}",
-            Color.LTGRAY, 14f
-        ), marginParams(bottom = 14))
-        action(column, "⌁   SENSOR TEST", "Live X / Y / Z sensor readings", cyan) { showSensorTest() }
-        action(column, "◉   GYRO EMULATOR", "Tilt preview • sensitivity • calibration", purple) { showEmulator() }
-        action(column, "▶   LAUNCH PUBG MOBILE", "Open the game if installed", cyan) { launchPubg() }
-        action(column, "⚙   SETTINGS & INFO", "App version and sensor limitations", purple) { showSettings() }
-        column.addView(TextView(this).apply {
-            text = "IR_KHATARY  •  PLAY SMART"; textSize = 10f
-            letterSpacing = .14f; setTextColor(Color.rgb(92, 109, 151))
-            gravity = Gravity.CENTER; setPadding(0, dp(18), 0, dp(8))
-        })
-        scroll.addView(column)
-        setContentView(scroll)
-        // Verify that the hardware gyro actually emits events, not just that its name exists.
-        gyroVerified = false
-        val realGyro = gyro
-        if (realGyro != null) {
-            sensorManager.unregisterListener(this)
-            sensorManager.registerListener(this, realGyro, SensorManager.SENSOR_DELAY_NORMAL)
-            Handler(Looper.getMainLooper()).postDelayed({
-                if (!gyroVerified && gyroStatusView === status) {
-                    status.text = "⚠  سنسور موجود است، اما داده‌ای دریافت نشد"
-                    status.setTextColor(Color.rgb(255, 174, 77))
-                }
-            }, 1800L)
-        }
-    }
-
-    private fun marginParams(bottom: Int = 0, top: Int = 0) =
-        LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, dp(top), 0, dp(bottom)) }
-
-    private fun cardText(text: String, color: Int, size: Float): TextView = TextView(this).apply {
-        this.text = text; textSize = size; setTextColor(color); setPadding(dp(16), dp(16), dp(16), dp(16))
-        background = panel(); typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-    }
-
-    private fun action(parent: LinearLayout, title: String, subtitle: String, accent: Int, run: () -> Unit) {
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(16), dp(18), dp(16))
-            background = panel(accent); isClickable = true; isFocusable = true
-            setOnClickListener { run() }
-        }
-        box.addView(TextView(this).apply {
-            text = title; textSize = 17f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
-        })
-        box.addView(TextView(this).apply {
-            text = subtitle; textSize = 12f; setTextColor(Color.rgb(153, 166, 201)); setPadding(0, dp(5), 0, 0)
-        })
-        parent.addView(box, marginParams(bottom = 12, top = 2))
-    }
-
-    private fun makePage(title: String): LinearLayout {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(22), dp(20), dp(18)); setBackgroundColor(bg)
-        }
-        layout.addView(TextView(this).apply {
+    private fun base(title: String): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(18), dp(20), dp(18), dp(18))
+        setBackgroundColor(bg)
+        addView(TextView(this@MainActivity).apply {
             text = title; textSize = 25f; setTextColor(Color.WHITE); typeface = Typeface.DEFAULT_BOLD
         })
-        layout.addView(TextView(this).apply {
-            text = "PUBG GYRO  /  SENSOR LAB"; textSize = 10f; setTextColor(cyan); letterSpacing = .12f
-            setPadding(0, dp(4), 0, dp(18))
+        addView(TextView(this@MainActivity).apply {
+            text = "IR_KHATARY  •  SENSOR LAB"; textSize = 10f; setTextColor(cyan)
+            setPadding(0, dp(5), 0, dp(16))
         })
-        return layout
     }
 
-    private fun addBack(layout: LinearLayout) {
-        val b = Button(this).apply { text = "‹   BACK TO HOME"; setOnClickListener { showHome() } }
-        layout.addView(b, marginParams(top = 14))
+    private fun textCard(text: String, color: Int = Color.LTGRAY, size: Float = 13f) = TextView(this).apply {
+        this.text = text; textSize = size; setTextColor(color)
+        setPadding(dp(14), dp(14), dp(14), dp(14)); background = card()
     }
 
-    private fun showSensorTest() {
+    private fun btn(parent: LinearLayout, caption: String, color: Int = cyan, action: () -> Unit) {
+        parent.addView(Button(this).apply {
+            text = caption; setTextColor(Color.WHITE); background = card(color)
+            setOnClickListener { action() }
+        }, LinearLayout.LayoutParams(-1, dp(54)).apply { setMargins(0, dp(6), 0, dp(6)) })
+    }
+
+    private fun display(root: LinearLayout) {
+        val scroll = ScrollView(this)
+        scroll.addView(root)
+        setContentView(scroll)
+    }
+
+    private fun home() {
         stopSensor()
-        sensorScreen = true; emulatorScreen = false
-        val layout = makePage("SENSOR TEST")
-        val scroller = ScrollView(this)
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val list = TextView(this).apply {
-            text = "GYROSCOPE: ${if (gyro != null) "AVAILABLE" else "NOT PRESENT"}\nACCELEROMETER: ${if (accel != null) "AVAILABLE" else "NOT PRESENT"}"
-            textSize = 14f; setTextColor(if (gyro != null) cyan else Color.rgb(255, 174, 77))
-            setPadding(dp(16), dp(16), dp(16), dp(16)); background = panel()
-        }
-        content.addView(list, marginParams(bottom = 12))
-        sensorReadout = TextView(this).apply {
-            text = "Move your phone to see live values.\n\nX: 0.000\nY: 0.000\nZ: 0.000"
-            textSize = 17f; setTextColor(Color.WHITE); setPadding(dp(18), dp(22), dp(18), dp(22)); background = panel(cyan)
-        }
-        content.addView(sensorReadout, marginParams(bottom = 12))
-        content.addView(cardText("Readings are from the physical sensor selected below. Accelerometer values are not gyro values.", Color.LTGRAY, 12f))
-        val choose = Button(this).apply {
-            text = if (gyro != null) "USE REAL GYROSCOPE" else "USE ACCELEROMETER"
-            setOnClickListener { startLiveSensor() }
-        }
-        content.addView(choose, marginParams(top = 12))
-        scroller.addView(content)
-        layout.addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
-        addBack(layout); setContentView(layout)
-        startLiveSensor()
+        val root = base("PUBG GYRO")
+        root.addView(textCard(t("subtitle"), cyan))
+        root.addView(textCard(if (gyro != null) "●  " + t("found") else "●  " + t("absent"),
+            if (gyro != null) green else Color.rgb(255, 174, 77)))
+        btn(root, "⚡  " + t("repair"), green) { repairPage() }
+        btn(root, "⌁  " + t("sensor"), cyan) { sensorPage() }
+        btn(root, "▶  " + t("launch"), cyan) { launchGame() }
+        btn(root, "⚙  " + t("settings"), Color.rgb(143, 72, 255)) { settingsPage() }
+        root.addView(textCard(t("note"), Color.LTGRAY, 11f))
+        display(root)
     }
 
-    private fun startLiveSensor() {
-        val sensor = gyro ?: accel
-        activeSensor = sensor
+    private fun repairPage() {
+        stopSensor()
+        logText = StringBuilder()
+        val root = base(t("repair"))
+        root.addView(textCard(t("note"), Color.LTGRAY, 11f))
+        btn(root, "⚡  " + t("start"), green) { startRepair() }
+        btn(root, "🔐  " + t("shizuku"), Color.rgb(143, 72, 255)) { askShizuku() }
+        root.addView(textCard(t("terminal"), cyan, 12f))
+        logScroll = ScrollView(this).apply { background = card(green) }
+        logView = TextView(this).apply {
+            text = "> " + t("ready") + "\n"; textSize = 12f; setTextColor(green)
+            typeface = Typeface.MONOSPACE; setPadding(dp(12), dp(12), dp(12), dp(12))
+        }
+        logScroll?.addView(logView)
+        root.addView(logScroll, LinearLayout.LayoutParams(-1, dp(260)).apply { setMargins(0, dp(7), 0, dp(7)) })
+        root.addView(textCard(t("limitations"), Color.LTGRAY, 11f))
+        btn(root, t("back")) { home() }
+        display(root)
+    }
+
+    private fun log(line: String) {
+        runOnUiThread {
+            val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())
+            logText.append("[" + time + "] " + line + "\n")
+            if (logText.length > 10000) logText.delete(0, logText.length - 8000)
+            logView?.text = logText.toString()
+            logScroll?.post { logScroll?.fullScroll(ScrollView.FOCUS_DOWN) }
+        }
+    }
+
+    private fun startRepair() {
+        if (repairing) return
+        repairing = true
+        events = 0; firstNs = 0L; lastNs = 0L; maxGap = 0f
+        log(t("begin")); log(t("checking"))
+        val sensor = gyro
         if (sensor == null) {
-            sensorReadout?.text = "No motion sensor available."
-            return
+            log(t("missing")); repairing = false; return
         }
-        sensorManager.unregisterListener(this)
-        sensorManager.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME)
-    }
-
-    private fun showEmulator() {
-        stopSensor()
-        sensorScreen = false; emulatorScreen = true
-        outputX = 0f; outputY = 0f
-        val layout = makePage("GYRO EMULATOR")
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        content.addView(cardText(
-            if (gyro != null) "Real gyroscope detected. This preview uses live gyro data." else "NO HARDWARE GYRO\nTilt estimation from accelerometer. Preview only; PUBG cannot receive a virtual system gyro.",
-            if (gyro != null) cyan else Color.rgb(255, 174, 77), 13f
-        ), marginParams(bottom = 12))
-        val stage = FrameLayout(this).apply { background = panel(cyan) }
-        val grid = TextView(this).apply {
-            text = "＋"; textSize = 40f; setTextColor(Color.rgb(66, 88, 130)); gravity = Gravity.CENTER
-        }
-        stage.addView(grid, FrameLayout.LayoutParams(-1, -1))
-        reticle = TextView(this).apply {
-            text = "⊙"; textSize = 42f; setTextColor(cyan); gravity = Gravity.CENTER
-        }
-        stage.addView(reticle, FrameLayout.LayoutParams(dp(70), dp(70), Gravity.CENTER))
-        content.addView(stage, LinearLayout.LayoutParams(-1, dp(230)).apply { setMargins(0, 0, 0, dp(12)) })
-        val values = TextView(this).apply {
-            text = "TILT X: 0.0°     TILT Y: 0.0°"; textSize = 13f; setTextColor(Color.WHITE)
-            setPadding(dp(14), dp(12), dp(14), dp(12)); background = panel()
-        }
-        sensorReadout = values
-        content.addView(values, marginParams(bottom = 10))
-        val sensLabel = TextView(this).apply { text = "SENSITIVITY  ${sensitivity}x"; setTextColor(Color.WHITE); textSize = 13f }
-        content.addView(sensLabel)
-        val sens = SeekBar(this).apply {
-            max = 300; progress = (sensitivity * 100).roundToInt()
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    sensitivity = (progress.coerceAtLeast(20) / 100f)
-                    sensLabel.text = "SENSITIVITY  ${"%.2f".format(sensitivity)}x"
+        log(t("present")); log(t("reregister"))
+        sm.unregisterListener(this)
+        sm.registerListener(this, sensor, SensorManager.SENSOR_DELAY_GAME)
+        log(t("sampling"))
+        Handler(Looper.getMainLooper()).postDelayed({
+            sm.unregisterListener(this)
+            if (events > 1 && lastNs > firstNs) {
+                val seconds = (lastNs - firstNs) / 1_000_000_000f
+                log(t("samples") + " " + "%.1f Hz / ".format(events / seconds) + events)
+                log(t("gap") + " " + "%.1f ms".format(maxGap))
+            } else log(t("nodata"))
+            repairing = false
+            if (Shizuku.pingBinder()) {
+                if (Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED) systemReport()
+                else {
+                    log(t("need"))
+                    try { Shizuku.requestPermission(REQUEST) } catch (e: Exception) { log(e.message ?: "Shizuku error") }
                 }
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-            })
-        }
-        content.addView(sens)
-        val smoothLabel = TextView(this).apply { text = "SMOOTHING"; setTextColor(Color.WHITE); textSize = 13f }
-        content.addView(smoothLabel, marginParams(top = 8))
-        val smoothSeek = SeekBar(this).apply {
-            max = 90; progress = (smooth * 100).roundToInt()
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    smooth = progress / 100f
-                }
-                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
-            })
-        }
-        content.addView(smoothSeek)
-        val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        buttons.addView(Button(this).apply {
-            text = "CALIBRATE"; setOnClickListener { baseX = liveX; baseY = liveY; outputX = 0f; outputY = 0f }
-        }, LinearLayout.LayoutParams(0, -2, 1f))
-        buttons.addView(Button(this).apply {
-            text = "RESET"; setOnClickListener { baseX = 0f; baseY = 0f; outputX = 0f; outputY = 0f }
-        }, LinearLayout.LayoutParams(0, -2, 1f))
-        content.addView(buttons)
-        val scroll = ScrollView(this); scroll.addView(content)
-        layout.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        addBack(layout); setContentView(layout)
-        val source = gyro ?: accel
-        if (source != null) {
-            activeSensor = source
-            sensorManager.registerListener(this, source, SensorManager.SENSOR_DELAY_GAME)
-        }
+            } else {
+                log(t("notrunning")); log(t("finish"))
+            }
+        }, 4000L)
     }
 
-    private fun showSettings() {
+    private fun askShizuku() {
+        try {
+            if (!Shizuku.pingBinder()) { log(t("notrunning")); return }
+            if (Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                log(t("granted")); systemReport()
+            } else {
+                log(t("need")); Shizuku.requestPermission(REQUEST)
+            }
+        } catch (e: Exception) { log(e.message ?: "Shizuku error") }
+    }
+
+    private fun systemReport() {
+        log(t("system"))
+        Thread {
+            try {
+                val process = Shizuku.newProcess(arrayOf("sh", "-c", "dumpsys sensorservice"), null, null)
+                val output = process.inputStream.bufferedReader().use { it.readText() }
+                val code = process.waitFor()
+                if (code == 0) {
+                    log(t("sysdone"))
+                    val lines = output.lines().filter { it.contains("gyro", true) || it.contains("sensor", true) || it.contains("error", true) }
+                    lines.take(35).forEach { log(it.take(220)) }
+                    if (lines.isEmpty()) log(output.take(1500))
+                } else log(t("sysfail") + " " + code)
+            } catch (e: Exception) { log(t("sysfail") + " " + (e.message ?: "")) }
+            log(t("finish"))
+        }.start()
+    }
+
+    private fun sensorPage() {
         stopSensor()
-        val layout = makePage("SETTINGS & INFO")
-        layout.addView(cardText(
-            "APP: PUBG GYRO\nVERSION: 1.0\n\nSensor data stays on this device.\n\nA regular Android app cannot add a virtual system gyroscope to PUBG Mobile. The emulator preview operates inside PUBG GYRO only.\n\nNo root required for sensor testing.",
-            Color.LTGRAY, 14f
-        ), marginParams(bottom = 12))
-        layout.addView(Button(this).apply { text = "RESET EMULATOR"; setOnClickListener {
-            sensitivity = 1f; smooth = .35f; baseX = 0f; baseY = 0f
-            Toast.makeText(this@MainActivity, "Emulator values reset", Toast.LENGTH_SHORT).show()
-        } })
-        addBack(layout); setContentView(layout)
-    }
-
-    private fun launchPubg() {
-        val candidates = listOf("com.tencent.ig", "com.pubg.imobile", "com.tencent.iglite")
-        for (pkg in candidates) {
-            val intent = packageManager.getLaunchIntentForPackage(pkg)
-            if (intent != null) { startActivity(intent); return }
+        val root = base(t("sensor"))
+        root.addView(textCard(t("data"), cyan))
+        val readout = textCard(t("nodata2"), Color.WHITE, 15f)
+        root.addView(readout)
+        root.addView(textCard(t("cal"), Color.LTGRAY, 11f))
+        btn(root, t("back")) { home() }
+        display(root)
+        if (gyro == null) readout.text = t("absent")
+        else {
+            liveText = readout
+            sm.registerListener(this, gyro, SensorManager.SENSOR_DELAY_GAME)
         }
-        Toast.makeText(this, "PUBG Mobile was not found.", Toast.LENGTH_LONG).show()
     }
 
     override fun onSensorChanged(event: SensorEvent) {
-        liveX = event.values.getOrElse(0) { 0f }
-        liveY = event.values.getOrElse(1) { 0f }
-        liveZ = event.values.getOrElse(2) { 0f }
-        if (event.sensor.type == Sensor.TYPE_GYROSCOPE && !sensorScreen && !emulatorScreen) {
-            gyroVerified = true
-            gyroStatusView?.text = "✓  ژیروسکوپ واقعی دارد و پاسخ می‌دهد"
-            gyroStatusView?.setTextColor(Color.rgb(76, 255, 145))
-        }
-        if (sensorScreen) {
-            val label = if (event.sensor.type == Sensor.TYPE_GYROSCOPE) "GYROSCOPE" else "ACCELEROMETER"
-            sensorReadout?.text = "$label\n\nX: ${"%.4f".format(liveX)}\nY: ${"%.4f".format(liveY)}\nZ: ${"%.4f".format(liveZ)}"
-        }
-        if (emulatorScreen) {
-            val tiltX: Float
-            val tiltY: Float
-            if (event.sensor.type == Sensor.TYPE_GYROSCOPE) {
-                tiltX = liveX * 12f
-                tiltY = liveY * 12f
-            } else {
-                tiltX = Math.toDegrees(atan2(liveX.toDouble(), liveZ.toDouble())).toFloat()
-                tiltY = Math.toDegrees(atan2(liveY.toDouble(), liveZ.toDouble())).toFloat()
-            }
-            val targetX = ((tiltX - baseX) * sensitivity).coerceIn(-40f, 40f)
-            val targetY = ((tiltY - baseY) * sensitivity).coerceIn(-40f, 40f)
-            outputX += (targetX - outputX) * (1f - smooth)
-            outputY += (targetY - outputY) * (1f - smooth)
-            sensorReadout?.text = "TILT X: ${"%.1f".format(outputX)}°     TILT Y: ${"%.1f".format(outputY)}°"
-            reticle?.translationX = outputY * dp(3)
-            reticle?.translationY = -outputX * dp(3)
-        }
+        if (event.sensor.type != Sensor.TYPE_GYROSCOPE) return
+        events++
+        if (firstNs == 0L) firstNs = event.timestamp
+        if (lastNs != 0L) maxGap = maxOf(maxGap, (event.timestamp - lastNs) / 1_000_000f)
+        lastNs = event.timestamp
+        liveText?.text = t("data") + "\nX: " + "%.3f".format(event.values[0]) +
+            "\nY: " + "%.3f".format(event.values[1]) + "\nZ: " + "%.3f".format(event.values[2]) +
+            "\nSamples: " + events
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-    private fun stopSensor() {
-        sensorManager.unregisterListener(this)
-        activeSensor = null
-    }
-
-    override fun onPause() {
-        super.onPause()
+    private fun settingsPage() {
         stopSensor()
+        val root = base(t("settings"))
+        btn(root, t("language") + ": " + t(if (fa) "fa" else "en")) {
+            prefs.edit().putBoolean("fa", !fa).apply()
+            settingsPage()
+        }
+        root.addView(textCard(t("limitations"), Color.LTGRAY, 12f))
+        btn(root, t("back")) { home() }
+        display(root)
     }
 
-    override fun onBackPressed() {
-        showHome()
+    private fun launchGame() {
+        for (pkg in listOf("com.tencent.ig", "com.pubg.imobile", "com.tencent.iglite")) {
+            val intent = packageManager.getLaunchIntentForPackage(pkg)
+            if (intent != null) { startActivity(intent); return }
+        }
+        Toast.makeText(this, if (fa) "پابجی موبایل پیدا نشد" else "PUBG Mobile not found", Toast.LENGTH_LONG).show()
     }
+
+    private fun stopSensor() {
+        sm.unregisterListener(this)
+        liveText = null
+    }
+
+    override fun onPause() { super.onPause(); stopSensor() }
+    override fun onDestroy() {
+        super.onDestroy()
+        stopSensor()
+        Shizuku.removeRequestPermissionResultListener(permissionListener)
+    }
+    override fun onBackPressed() { home() }
+
+    companion object { private const val REQUEST = 7031 }
 }
