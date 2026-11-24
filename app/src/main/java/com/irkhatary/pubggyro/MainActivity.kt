@@ -40,7 +40,7 @@ class MainActivity : Activity(), SensorEventListener {
         if (code == REQUEST) {
             if (result == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 log(t("granted"))
-                systemReport()
+                log(t("limitations"))
             } else log(t("denied"))
         }
     }
@@ -240,7 +240,7 @@ class MainActivity : Activity(), SensorEventListener {
             } else log(t("nodata"))
             repairing = false
             if (Shizuku.pingBinder()) {
-                if (Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED) systemReport()
+                if (Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED) { log(t("granted")); log(t("limitations")); log(t("finish")) }
                 else {
                     log(t("need"))
                     try { Shizuku.requestPermission(REQUEST) } catch (e: Exception) { log(e.message ?: "Shizuku error") }
@@ -255,29 +255,11 @@ class MainActivity : Activity(), SensorEventListener {
         try {
             if (!Shizuku.pingBinder()) { log(t("notrunning")); return }
             if (Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                log(t("granted")); systemReport()
+                log(t("granted")); log(t("limitations"))
             } else {
                 log(t("need")); Shizuku.requestPermission(REQUEST)
             }
         } catch (e: Exception) { log(e.message ?: "Shizuku error") }
-    }
-
-    private fun systemReport() {
-        log(t("system"))
-        Thread {
-            try {
-                val process = Shizuku.newProcess(arrayOf("sh", "-c", "dumpsys sensorservice"), null, null)
-                val output = process.inputStream.bufferedReader().use { it.readText() }
-                val code = process.waitFor()
-                if (code == 0) {
-                    log(t("sysdone"))
-                    val lines = output.lines().filter { it.contains("gyro", true) || it.contains("sensor", true) || it.contains("error", true) }
-                    lines.take(35).forEach { log(it.take(220)) }
-                    if (lines.isEmpty()) log(output.take(1500))
-                } else log(t("sysfail") + " " + code)
-            } catch (e: Exception) { log(t("sysfail") + " " + (e.message ?: "")) }
-            log(t("finish"))
-        }.start()
     }
 
     private fun sensorPage() {
