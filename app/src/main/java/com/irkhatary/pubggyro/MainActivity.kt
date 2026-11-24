@@ -40,6 +40,8 @@ class MainActivity : Activity(), SensorEventListener {
     private var reticle: TextView? = null
     private var sensorScreen = false
     private var emulatorScreen = false
+    private var gyroStatusView: TextView? = null
+    private var gyroVerified = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -99,9 +101,10 @@ class MainActivity : Activity(), SensorEventListener {
         })
         val hasGyro = gyro != null
         val status = cardText(
-            if (hasGyro) "●  HARDWARE GYROSCOPE DETECTED" else "●  NO HARDWARE GYROSCOPE",
+            if (hasGyro) "●  ژیروسکوپ واقعی در گوشی پیدا شد" else "●  ژیروسکوپ واقعی پیدا نشد",
             if (hasGyro) cyan else Color.rgb(255, 174, 77), 13f
         )
+        gyroStatusView = status
         column.addView(status, marginParams(bottom = 14, top = 20))
         column.addView(cardText(
             "DEVICE SCAN\n\nGyroscope: ${if (hasGyro) "Available" else "Not detected"}\nAccelerometer: ${if (accel != null) "Available" else "Not detected"}\n\n${if (hasGyro) "Real gyro readings can be tested." else "Motion estimate uses the accelerometer and works only inside this app."}",
@@ -118,6 +121,19 @@ class MainActivity : Activity(), SensorEventListener {
         })
         scroll.addView(column)
         setContentView(scroll)
+        // Verify that the hardware gyro actually emits events, not just that its name exists.
+        gyroVerified = false
+        val realGyro = gyro
+        if (realGyro != null) {
+            sensorManager.unregisterListener(this)
+            sensorManager.registerListener(this, realGyro, SensorManager.SENSOR_DELAY_NORMAL)
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (!gyroVerified && gyroStatusView === status) {
+                    status.text = "⚠  سنسور موجود است، اما داده‌ای دریافت نشد"
+                    status.setTextColor(Color.rgb(255, 174, 77))
+                }
+            }, 1800L)
+        }
     }
 
     private fun marginParams(bottom: Int = 0, top: Int = 0) =
@@ -300,6 +316,11 @@ class MainActivity : Activity(), SensorEventListener {
         liveX = event.values.getOrElse(0) { 0f }
         liveY = event.values.getOrElse(1) { 0f }
         liveZ = event.values.getOrElse(2) { 0f }
+        if (event.sensor.type == Sensor.TYPE_GYROSCOPE && !sensorScreen && !emulatorScreen) {
+            gyroVerified = true
+            gyroStatusView?.text = "✓  ژیروسکوپ واقعی دارد و پاسخ می‌دهد"
+            gyroStatusView?.setTextColor(Color.rgb(76, 255, 145))
+        }
         if (sensorScreen) {
             val label = if (event.sensor.type == Sensor.TYPE_GYROSCOPE) "GYROSCOPE" else "ACCELEROMETER"
             sensorReadout?.text = "$label\n\nX: ${"%.4f".format(liveX)}\nY: ${"%.4f".format(liveY)}\nZ: ${"%.4f".format(liveZ)}"
