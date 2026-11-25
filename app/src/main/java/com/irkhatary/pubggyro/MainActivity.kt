@@ -67,7 +67,7 @@ class MainActivity : Activity(), SensorEventListener {
             val s = gyro ?: return false
             runOnUiThread {
                 liveActive = true
-                sensorManager.registerListener(this@MainActivity, s, SensorManager.SENSOR_DELAY_GAME)
+                sensorManager.registerListener(this@MainActivity, s, SensorManager.SENSOR_DELAY_FASTEST)
                 js("window.onGyroStatus && window.onGyroStatus(true)")
             }
             return true
@@ -119,7 +119,7 @@ class MainActivity : Activity(), SensorEventListener {
         if (s == null) { js("window.onGyroStatus && window.onGyroStatus(false)"); return }
         testing = true
         samples = 0; firstNs = 0L; lastNs = 0L; maxGapMs = 0f
-        sensorManager.registerListener(this, s, SensorManager.SENSOR_DELAY_GAME)
+        sensorManager.registerListener(this, s, SensorManager.SENSOR_DELAY_FASTEST)
         js("window.onTestStarted && window.onTestStarted()")
         handler.postDelayed({
             if (!testing) return@postDelayed
